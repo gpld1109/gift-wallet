@@ -5,6 +5,7 @@ import {
   createVault, unlockVault, unlockWithRecovery, rewrapPassphrase, rewrapRecovery,
   encryptField, decryptAny, generateRecoveryCode,
   createPinRecord, verifyPinRecord,
+  encryptBackup, decryptBackup, isEncryptedBackup,
 } from "./crypto";
 import PrivacyPolicy from "./legal/PrivacyPolicy";
 import TermsOfService from "./legal/TermsOfService";
@@ -284,6 +285,42 @@ function RevealPinPad({ mode = "verify", length = 6, title, subtitle, onVerify, 
   );
 }
 
+// Password form for encrypted backup export ("export": password + confirm) and
+// import ("import": single password). onSubmit returns false on a wrong password.
+function BackupPasswordForm({ mode, onSubmit }) {
+  const [pass, setPass] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submit = async () => {
+    if (pass.length < 6) return setError("סיסמה של לפחות 6 תווים");
+    if (mode === "export" && pass !== confirm) return setError("הסיסמאות לא תואמות");
+    setBusy(true); setError("");
+    const ok = await onSubmit(pass);
+    setBusy(false);
+    if (ok === false) setError("סיסמת גיבוי שגויה");
+  };
+  return (
+    <>
+      {mode === "export" && (
+        <p style={{ color: "#8892b0", fontSize: 13, lineHeight: 1.6, marginTop: 0, marginBottom: 16 }}>
+          בחר סיסמה להצפנת קובץ הגיבוי. <strong style={{ color: "#a8b2d8" }}>תצטרך אותה כדי לשחזר</strong> — שמור אותה.
+        </p>
+      )}
+      <label htmlFor="bk-pass" style={vaultLabel}>{mode === "export" ? "סיסמת גיבוי (6+ תווים)" : "סיסמת הגיבוי"}</label>
+      <input id="bk-pass" type="password" autoComplete={mode === "export" ? "new-password" : "current-password"} style={vaultInput} value={pass} onChange={e => { setPass(e.target.value); setError(""); }} onKeyDown={e => { if (e.key === "Enter" && mode === "import") submit(); }} dir="ltr" />
+      {mode === "export" && (
+        <>
+          <label htmlFor="bk-pass2" style={vaultLabel}>אימות סיסמה</label>
+          <input id="bk-pass2" type="password" autoComplete="new-password" style={vaultInput} value={confirm} onChange={e => { setConfirm(e.target.value); setError(""); }} onKeyDown={e => e.key === "Enter" && submit()} dir="ltr" />
+        </>
+      )}
+      {error && <div role="alert" style={{ color: "#ef4444", fontSize: 13, marginBottom: 12 }}>{error}</div>}
+      <button style={vaultBtn(busy)} onClick={submit} disabled={busy}>{busy ? "מעבד..." : (mode === "export" ? "📥 ייצא גיבוי מוצפן" : "🔓 שחזר")}</button>
+    </>
+  );
+}
+
 // ─── AUTH SCREEN ──────────────────────────────────────────────────────────────
 
 function AuthScreen() {
@@ -539,6 +576,8 @@ export default function App() {
   });
   const [revealPinModal, setRevealPinModal] = useState(null); // cardId awaiting the reveal PIN
   const [pinSetModal, setPinSetModal] = useState(null);       // null | "set" | "remove"
+  const [backupModal, setBackupModal] = useState(null);       // null | "export" | "import"
+  const [pendingImport, setPendingImport] = useState(null);   // parsed encrypted backup awaiting password
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState("dashboard");
@@ -702,6 +741,29 @@ export default function App() {
     setSecurityModal(null);
     setRecoveryCodeToShow(recoveryCode); // shown in a modal while vaultState === "open"
   };
+
+  // Lock the vault: wipe the in-memory DEK and decrypted cards, show the unlock screen.
+  const lockVault = useCallback(() => {
+    setDek(null);
+    dekRawRef.current = null;
+    setRevealedCards({});
+    setCards([]);
+    setVaultState("locked");
+  }, []);
+
+  // Auto-lock: if the app sits in the background for more than 60s, require the
+  // passphrase again on return. (A full reload already requires it — the DEK is
+  // never persisted.) The short grace avoids re-locking on quick app switches.
+  useEffect(() => {
+    if (vaultState !== "open") return;
+    let hiddenAt = 0;
+    const onVisibility = () => {
+      if (document.hidden) hiddenAt = Date.now();
+      else if (hiddenAt && Date.now() - hiddenAt > 60000) lockVault();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [vaultState, lockVault]);
 
   // ─── DB Operations ─────────────────────────────────────────────────────────
 
@@ -911,17 +973,30 @@ export default function App() {
     showToast("פרטים גלויים ל-30 שניות 🔓");
   };
 
-  // ── Export ──
-  const exportData = () => {
-    const blob = new Blob([JSON.stringify({ cards, exportedAt: new Date().toISOString() }, null, 2)], { type: "application/json" });
+  // ── Copy to clipboard ──
+  const copyText = (text) => {
+    try { navigator.clipboard?.writeText(text); showToast("הקוד הועתק ✓"); }
+    catch { showToast("ההעתקה נכשלה", "error"); }
+  };
+
+  // ── Export (password-encrypted backup) ──
+  const exportData = () => setBackupModal("export");
+
+  const doExport = async (password) => {
+    const payload = JSON.stringify({ cards, exportedAt: new Date().toISOString() });
+    const enc = await encryptBackup(payload, password);
+    const blob = new Blob([JSON.stringify(enc, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url;
     a.download = `gift-cards-backup-${new Date().toISOString().split("T")[0]}.json`; a.click();
     URL.revokeObjectURL(url);
-    showToast("גיבוי הורד ✓");
+    setBackupModal(null);
+    showToast("גיבוי מוצפן הורד ✓");
   };
 
-  // ── Import old backup (from localStorage version) ──
+  // ── Import backup ──
+  // Handles both the new encrypted format (prompts for the backup password) and
+  // the legacy plaintext format (older localStorage exports).
   const importOldBackup = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -929,64 +1004,70 @@ export default function App() {
     reader.onload = async (ev) => {
       try {
         const data = JSON.parse(ev.target.result);
+        if (isEncryptedBackup(data)) { setPendingImport(data); setBackupModal("import"); return; }
         const oldCards = data.cards || (Array.isArray(data) ? data : null);
         if (!oldCards || !Array.isArray(oldCards)) return showToast("קובץ לא תקין", "error");
-
-        showToast("מייבא נתונים...", "warn");
-        let imported = 0;
-        let skipped = 0;
-
-        for (const card of oldCards) {
-          // Skip demo cards
-          if (card.id === "demo1" || card.id === "demo2") { skipped++; continue; }
-
-          const amount = card.originalAmount || card.original_amount || 0;
-          const remaining = card.remainingAmount || card.remaining_amount || amount;
-
-          // Insert card with encrypted code
-          const { data: newCard, error: cardError } = await supabase.from("cards").insert({
-            user_id: session.user.id,
-            provider: card.provider || "other",
-            code: await encryptField(card.code || "", dek),
-            original_amount: amount,
-            remaining_amount: remaining,
-            expiry: card.expiry || null,
-            notes: await encryptField(card.notes || "", dek),
-            fully_used: card.fullyUsed || card.fully_used || false,
-            image: await encryptField(card.image || null, dek),
-            color: card.color || null,
-            store_name: await encryptField(card.storeName || card.store_name || null, dek),
-          }).select().single();
-
-          if (cardError) { skipped++; continue; }
-
-          // Insert transactions for this card
-          const txs = card.transactions || [];
-          for (const tx of txs) {
-            await supabase.from("transactions").insert({
-              card_id: newCard.id,
-              user_id: session.user.id,
-              store: tx.store || "",
-              purpose: tx.purpose || "אחר",
-              amount: tx.amount || 0,
-              date: tx.date || new Date().toISOString().split("T")[0],
-              notes: tx.notes || "",
-            });
-          }
-          imported++;
-        }
-
-        await loadCardsFromDB();
-        showToast(`יובאו ${imported} כרטיסים בהצלחה! 🎉`);
-        if (skipped > 0) showToast(`${skipped} כרטיסים דולגו`, "warn");
-        setView("dashboard");
-      } catch (err) {
+        await runImport(oldCards);
+      } catch {
         showToast("שגיאה בקריאת הקובץ", "error");
       }
     };
     reader.readAsText(file);
-    // Reset input
-    e.target.value = "";
+    e.target.value = ""; // reset input
+  };
+
+  const doImport = async (password) => {
+    try {
+      const json = await decryptBackup(pendingImport, password);
+      const data = JSON.parse(json);
+      const oldCards = data.cards || (Array.isArray(data) ? data : null);
+      if (!oldCards || !Array.isArray(oldCards)) { showToast("קובץ לא תקין", "error"); return true; }
+      setBackupModal(null);
+      setPendingImport(null);
+      await runImport(oldCards);
+      return true;
+    } catch {
+      return false; // wrong password
+    }
+  };
+
+  const runImport = async (oldCards) => {
+    showToast("מייבא נתונים...", "warn");
+    let imported = 0, skipped = 0;
+    for (const card of oldCards) {
+      if (card.id === "demo1" || card.id === "demo2") { skipped++; continue; }
+      const amount = card.originalAmount || card.original_amount || 0;
+      const remaining = card.remainingAmount || card.remaining_amount || amount;
+      const { data: newCard, error: cardError } = await supabase.from("cards").insert({
+        user_id: session.user.id,
+        provider: card.provider || "other",
+        code: await encryptField(card.code || "", dek),
+        cvv: await encryptField(card.cvv || "", dek),
+        card_holder: await encryptField(card.cardHolder || card.card_holder || null, dek),
+        original_amount: amount,
+        remaining_amount: remaining,
+        expiry: card.expiry || null,
+        notes: await encryptField(card.notes || "", dek),
+        fully_used: card.fullyUsed || card.fully_used || false,
+        image: await encryptField(card.image || null, dek),
+        color: card.color || null,
+        store_name: await encryptField(card.storeName || card.store_name || null, dek),
+      }).select().single();
+      if (cardError) { skipped++; continue; }
+      for (const tx of (card.transactions || [])) {
+        await supabase.from("transactions").insert({
+          card_id: newCard.id, user_id: session.user.id,
+          store: tx.store || "", purpose: tx.purpose || "אחר",
+          amount: tx.amount || 0, date: tx.date || new Date().toISOString().split("T")[0],
+          notes: tx.notes || "",
+        });
+      }
+      imported++;
+    }
+    await loadCardsFromDB();
+    showToast(`יובאו ${imported} כרטיסים בהצלחה! 🎉`);
+    if (skipped > 0) showToast(`${skipped} כרטיסים דולגו`, "warn");
+    setView("dashboard");
   };
 
   // ── Sorting & Filtering ──
@@ -1110,15 +1191,14 @@ export default function App() {
           <div style={S.sectionCard}>
             <h3 style={S.sectionTitle}>💾 גיבוי והעברת נתונים</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <button style={S.primaryBtn} onClick={exportData}>📥 ייצא גיבוי (JSON)</button>
+              <button style={S.primaryBtn} onClick={exportData}>📥 ייצא גיבוי מוצפן</button>
+              <div style={{ color: "#4b5563", fontSize: 11, marginBottom: 4 }}>הקובץ מוצפן בסיסמה שתבחר — בטוח לשמירה בענן או במייל</div>
               <div style={{ height: 1, background: "#1f2937", margin: "4px 0" }} />
-              <div style={{ color: "#f59e0b", fontSize: 13, fontWeight: 600 }}>📂 העברה מגרסה ישנה</div>
-              <div style={{ color: "#6b7280", fontSize: 12, marginBottom: 4 }}>אם השתמשת באפליקציה לפני הגרסה הזו — ייבא את הגיבוי שהורדת</div>
-              <button style={{ ...S.outlineBtn, borderColor: "#f59e0b", color: "#f59e0b" }} onClick={() => importRef.current?.click()}>
-                📤 ייבא מגיבוי ישן
+              <button style={S.outlineBtn} onClick={() => importRef.current?.click()}>
+                📤 ייבא גיבוי
               </button>
               <input ref={importRef} type="file" accept=".json" style={{ display: "none" }} onChange={importOldBackup} />
-              <div style={{ color: "#4b5563", fontSize: 11 }}>הנתונים שמורים בענן ומסונכרנים בין כל המכשירים</div>
+              <div style={{ color: "#4b5563", fontSize: 11 }}>תומך בגיבוי מוצפן וגם בגיבוי ישן. הנתונים מסונכרנים בין כל המכשירים</div>
             </div>
           </div>
 
@@ -1170,6 +1250,18 @@ export default function App() {
                 return ok;
               }}
               onCancel={() => setPinSetModal(null)} />
+          </Modal>
+        )}
+
+        {backupModal === "export" && (
+          <Modal title="ייצוא גיבוי מוצפן" onClose={() => setBackupModal(null)}>
+            <BackupPasswordForm mode="export" onSubmit={doExport} />
+          </Modal>
+        )}
+
+        {backupModal === "import" && (
+          <Modal title="שחזור מגיבוי מוצפן" onClose={() => { setBackupModal(null); setPendingImport(null); }}>
+            <BackupPasswordForm mode="import" onSubmit={doImport} />
           </Modal>
         )}
 
@@ -1445,6 +1537,9 @@ export default function App() {
                 <div style={{ fontFamily: "monospace", fontSize: 15, color: "#e8eaf6", letterSpacing: 2, overflowWrap: "anywhere" }}>
                   {revealedCards[selectedCard.id] ? selectedCard.code : "•••• •••• ••••"}
                 </div>
+                {revealedCards[selectedCard.id] && selectedCard.code && (
+                  <button onClick={() => copyText(selectedCard.code)} style={{ marginTop: 8, background: "#1e2235", border: "1px solid #2d3250", color: "#a8b2d8", padding: "5px 12px", borderRadius: 18, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>📋 העתק קוד</button>
+                )}
               </div>
               {selectedCard.cvv && (
                 <div style={{ flex: 1, minWidth: 0 }}>

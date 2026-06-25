@@ -15,6 +15,9 @@ import {
   encryptCode,
   createPinRecord,
   verifyPinRecord,
+  encryptBackup,
+  decryptBackup,
+  isEncryptedBackup,
 } from "../src/crypto.js";
 
 let passed = 0;
@@ -155,6 +158,15 @@ await test("encrypts image data-URLs and multiline notes", async () => {
   assert.ok(encImg.startsWith("v2:") && encNote.startsWith("v2:"));
   assert.equal(await decryptField(encImg, dek), image);
   assert.equal(await decryptField(encNote, dek), note);
+});
+
+await test("backup: encrypts, round-trips, wrong password fails, never plaintext", async () => {
+  const payload = JSON.stringify({ cards: [{ code: "SECRET-CODE", cvv: "123" }] });
+  const enc = await encryptBackup(payload, "backup-pass");
+  assert.ok(isEncryptedBackup(enc));
+  assert.ok(!JSON.stringify(enc).includes("SECRET-CODE"), "backup file must not contain plaintext");
+  assert.equal(await decryptBackup(enc, "backup-pass"), payload);
+  await assert.rejects(() => decryptBackup(enc, "wrong-pass"));
 });
 
 console.log(`\n${passed} passed`);

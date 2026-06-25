@@ -185,6 +185,26 @@ export function normalizeRecoveryCode(input) {
   return String(input || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
+// ── Backup file encryption (password-based, portable) ─────────────────────────
+// Exported backups are encrypted with a password the user chooses, so the file is
+// safe to store/sync/email. Importing requires that password. Portable: not tied
+// to the vault DEK, so a backup can be restored into a fresh install.
+export async function encryptBackup(plaintext, password) {
+  const salt = randomBytes(16);
+  const key = await deriveKEK(password, salt);
+  const data = await aesEncrypt(key, new TextEncoder().encode(plaintext));
+  return { format: "gift-wallet-backup", v: 2, iterations: KDF_ITERATIONS, salt: bytesToB64(salt), data };
+}
+
+export async function decryptBackup(obj, password) {
+  const key = await deriveKEK(password, b64ToBytes(obj.salt), obj.iterations || KDF_ITERATIONS);
+  return new TextDecoder().decode(await aesDecrypt(key, obj.data)); // throws on wrong password
+}
+
+export function isEncryptedBackup(obj) {
+  return !!obj && typeof obj === "object" && obj.format === "gift-wallet-backup" && typeof obj.data === "string";
+}
+
 // ── Reveal PIN (a local shoulder-surf gate before showing a code) ─────────────
 // This does NOT protect the ciphertext — the passphrase already does that at
 // login. It only gates the on-screen reveal. Stored as PBKDF2-SHA256(salt, pin)
