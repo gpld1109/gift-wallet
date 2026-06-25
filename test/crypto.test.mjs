@@ -146,4 +146,15 @@ await test("reveal PIN: correct verifies, wrong fails, record hides the PIN", as
   assert.ok(!JSON.stringify(rec).includes("135790"), "stored record must not contain the PIN");
 });
 
+await test("encrypts image data-URLs and multiline notes", async () => {
+  const { dek } = await createVault("pw", generateRecoveryCode());
+  const image = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBD" + "A".repeat(500);
+  const note = "שורה ראשונה\nשורה שנייה עם תווים מיוחדים: %$#@\nוסוף";
+  const encImg = await encryptField(image, dek);
+  const encNote = await encryptField(note, dek);
+  assert.ok(encImg.startsWith("v2:") && encNote.startsWith("v2:"));
+  assert.equal(await decryptField(encImg, dek), image);
+  assert.equal(await decryptField(encNote, dek), note);
+});
+
 console.log(`\n${passed} passed`);

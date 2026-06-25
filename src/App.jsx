@@ -615,12 +615,12 @@ export default function App() {
   const migrateLegacyCards = async (dekKey) => {
     try {
       const { data: rows } = await supabase
-        .from("cards").select("id, code, cvv").eq("user_id", session.user.id);
+        .from("cards").select("id, code, cvv, image, notes, card_holder, store_name").eq("user_id", session.user.id);
       for (const r of rows || []) {
         const updates = {};
-        for (const field of ["code", "cvv"]) {
+        for (const field of ["code", "cvv", "image", "notes", "card_holder", "store_name"]) {
           const val = r[field];
-          if (!val || val.startsWith("v2:")) continue;       // already migrated or empty
+          if (typeof val !== "string" || !val || val.startsWith("v2:")) continue; // already migrated or empty
           const plain = await decryptAny(val, dekKey, session.user.id);
           // Guard: only re-encrypt if we actually recovered plaintext. If legacy
           // decryption failed, decryptAny returns the original "enc:" string — never
@@ -722,11 +722,13 @@ export default function App() {
         originalAmount: card.original_amount,
         remainingAmount: card.remaining_amount,
         fullyUsed: card.fully_used,
-        storeName: card.store_name,
-        cardHolder: card.card_holder,
         createdAt: card.created_at,
         code: await decryptAny(card.code, dek, session.user.id),
         cvv: await decryptAny(card.cvv, dek, session.user.id),
+        image: await decryptAny(card.image, dek, session.user.id),
+        notes: await decryptAny(card.notes, dek, session.user.id),
+        storeName: await decryptAny(card.store_name, dek, session.user.id),
+        cardHolder: await decryptAny(card.card_holder, dek, session.user.id),
         transactions: (txData || []).filter(t => t.card_id === card.id).map(t => ({
           id: t.id, date: t.date, store: t.store, purpose: t.purpose, amount: t.amount, notes: t.notes
         }))
@@ -754,12 +756,14 @@ export default function App() {
         provider: form.provider,
         code: await encryptField(form.code.trim(), dek),
         cvv: await encryptField(form.cvv.trim(), dek),
-        card_holder: form.cardHolder.trim() || null,
+        card_holder: await encryptField(form.cardHolder.trim() || null, dek),
         original_amount: amount,
         remaining_amount: editingCard.remainingAmount + (amount - editingCard.originalAmount),
-        expiry: form.expiry || null, notes: form.notes,
-        image: form.image !== undefined ? form.image : editingCard.image,
-        color: form.color || null, store_name: form.storeName || null,
+        expiry: form.expiry || null,
+        notes: await encryptField(form.notes, dek),
+        image: await encryptField(form.image !== undefined ? form.image : editingCard.image, dek),
+        color: form.color || null,
+        store_name: await encryptField(form.storeName || null, dek),
         fully_used: editingCard.remainingAmount + (amount - editingCard.originalAmount) <= 0,
       }).eq("id", editingCard.id);
       if (error) return showToast("שגיאה בעדכון", "error");
@@ -769,10 +773,11 @@ export default function App() {
         user_id: session.user.id, provider: form.provider,
         code: await encryptField(form.code.trim(), dek),
         cvv: await encryptField(form.cvv.trim(), dek),
-        card_holder: form.cardHolder.trim() || null,
+        card_holder: await encryptField(form.cardHolder.trim() || null, dek),
         original_amount: amount, remaining_amount: amount,
-        expiry: form.expiry || null, notes: form.notes, fully_used: false,
-        image: form.image || null, color: form.color || null, store_name: form.storeName || null,
+        expiry: form.expiry || null, notes: await encryptField(form.notes, dek), fully_used: false,
+        image: await encryptField(form.image || null, dek), color: form.color || null,
+        store_name: await encryptField(form.storeName || null, dek),
       });
       if (error) return showToast("שגיאה בהוספה", "error");
       showToast("כרטיס נוסף! 🎉");
@@ -946,11 +951,11 @@ export default function App() {
             original_amount: amount,
             remaining_amount: remaining,
             expiry: card.expiry || null,
-            notes: card.notes || "",
+            notes: await encryptField(card.notes || "", dek),
             fully_used: card.fullyUsed || card.fully_used || false,
-            image: card.image || null,
+            image: await encryptField(card.image || null, dek),
             color: card.color || null,
-            store_name: card.storeName || card.store_name || null,
+            store_name: await encryptField(card.storeName || card.store_name || null, dek),
           }).select().single();
 
           if (cardError) { skipped++; continue; }
