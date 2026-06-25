@@ -1542,7 +1542,7 @@ export default function App() {
       {/* SCROLLABLE */}
       <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
         <div style={{ maxWidth: 520, margin: "0 auto", padding: "12px 16px 80px", boxSizing: "border-box" }}>
-          <div style={{ display: "flex", gap: 8, marginBottom: 12, overflowX: "auto", paddingBottom: 4 }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 12, overflowX: "auto", paddingBottom: 4, touchAction: "pan-x" }}>
             <button style={{ ...S.chipBtn, background: filterProvider === "all" ? "#6c63ff" : "#111827", flexShrink: 0 }} onClick={() => setFilterProvider("all")}>הכל ({cards.filter(c => showUsed || !c.fullyUsed).length})</button>
             {PROVIDERS.filter(p => cards.some(c => c.provider === p.id)).map(p => (
               <button key={p.id} style={{ ...S.chipBtn, background: filterProvider === p.id ? p.color : "#111827", flexShrink: 0 }} onClick={() => setFilterProvider(filterProvider === p.id ? "all" : p.id)}>

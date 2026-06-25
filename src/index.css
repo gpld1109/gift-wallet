@@ -28,6 +28,15 @@ html, body {
 body {
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
+  /* Allow vertical scroll + pinch-zoom, but block horizontal drag so the page
+     can't be pushed left/right or show a phantom horizontal scrollbar. The chip
+     strip re-enables pan-x on itself. */
+  touch-action: pan-y pinch-zoom;
+}
+
+/* Media can never exceed the viewport width */
+img, svg, canvas, video {
+  max-width: 100%;
 }
 
 input, button, select, textarea {
