@@ -100,16 +100,16 @@ function PinPad({ title, subtitle, onSuccess, onCancel, mode = "verify", storedH
         {mode === "set" && !confirm ? "הכנס PIN חדש (4 ספרות)" : mode === "set" && confirm ? "אמת את ה-PIN שוב" : subtitle || "הכנס PIN לכניסה"}
       </div>
       <div style={{ display: "flex", gap: 14, justifyContent: "center", marginBottom: 24 }}>
-        {[0,1,2,3].map(i => (
+        {[0, 1, 2, 3].map(i => (
           <div key={i} style={{ width: 18, height: 18, borderRadius: "50%", background: digits.length > i ? "#6c63ff" : "#2d3250", transition: "all 0.2s", border: "2px solid #2d3250" }} />
         ))}
       </div>
       {error && <div style={{ color: "#ef4444", fontSize: 13, marginBottom: 16 }}>{error}</div>}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, maxWidth: 260, margin: "0 auto" }}>
-        {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((d, i) => (
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9, "", 0, "⌫"].map((d, i) => (
           <button key={i}
             style={{ padding: "18px 0", borderRadius: 14, background: d === "" ? "transparent" : "#1e2235", border: "none", color: "#e8eaf6", fontSize: 22, fontWeight: 700, cursor: d === "" ? "default" : "pointer", fontFamily: "inherit" }}
-            onClick={() => { if (d === "⌫") setDigits(prev => prev.slice(0,-1)); else if (d !== "") press(String(d)); }}>
+            onClick={() => { if (d === "⌫") setDigits(prev => prev.slice(0, -1)); else if (d !== "") press(String(d)); }}>
             {d}
           </button>
         ))}
@@ -252,7 +252,7 @@ function StatsView({ cards, onBack }) {
     return { name: label, value };
   });
 
-  const COLORS = ["#6c63ff","#E91E8C","#FF6B35","#00B894","#FF9900","#4285F4","#a855f7"];
+  const COLORS = ["#6c63ff", "#E91E8C", "#FF6B35", "#00B894", "#FF9900", "#4285F4", "#a855f7"];
 
   return (
     <div style={S.page}>
@@ -284,7 +284,7 @@ function StatsView({ cards, onBack }) {
                   <XAxis dataKey="name" tick={{ fill: "#8892b0", fontSize: 11 }} />
                   <YAxis tick={{ fill: "#8892b0", fontSize: 11 }} />
                   <Tooltip formatter={(v) => [fmt(v), "סכום"]} contentStyle={{ background: "#111827", border: "1px solid #2d3250", borderRadius: 10, color: "#e8eaf6", fontFamily: "inherit", direction: "rtl" }} />
-                  <Bar dataKey="value" fill="#6c63ff" radius={[6,6,0,0]} />
+                  <Bar dataKey="value" fill="#6c63ff" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -606,7 +606,7 @@ export default function App() {
           });
         }
       }
-    } catch {}
+    } catch { }
     // Reveal directly
     doReveal(card.id, card);
   };
@@ -921,7 +921,7 @@ export default function App() {
                   dir="ltr"
                   onChange={e => {
                     let v = e.target.value.replace(/\D/g, "");
-                    if (v.length >= 3) v = v.slice(0,2) + "/" + v.slice(2,4);
+                    if (v.length >= 3) v = v.slice(0, 2) + "/" + v.slice(2, 4);
                     const parts = v.split("/");
                     let isoDate = "";
                     if (parts.length === 2 && parts[0].length === 2 && parts[1].length === 2) {
@@ -1043,7 +1043,7 @@ export default function App() {
           <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <button style={S.backBtn} onClick={() => setView("dashboard")}>→ חזרה</button>
             <div style={{ display: "flex", gap: 12 }}>
-              <button style={S.backBtn} onClick={() => { setForm({ provider: selectedCard.provider, code: selectedCard.code || "", originalAmount: String(selectedCard.originalAmount), expiry: selectedCard.expiry || "", expiryDisplay: selectedCard.expiry ? `${selectedCard.expiry.slice(5,7)}/${selectedCard.expiry.slice(2,4)}` : "", notes: selectedCard.notes || "", image: selectedCard.image, color: selectedCard.color || "", storeName: selectedCard.storeName || "", cvv: selectedCard.cvv || "", cardHolder: selectedCard.cardHolder || "" }); setEditingCard(selectedCard); setView("add"); }}>✏️ ערוך</button>
+              <button style={S.backBtn} onClick={() => { setForm({ provider: selectedCard.provider, code: selectedCard.code || "", originalAmount: String(selectedCard.originalAmount), expiry: selectedCard.expiry || "", expiryDisplay: selectedCard.expiry ? `${selectedCard.expiry.slice(5, 7)}/${selectedCard.expiry.slice(2, 4)}` : "", notes: selectedCard.notes || "", image: selectedCard.image, color: selectedCard.color || "", storeName: selectedCard.storeName || "", cvv: selectedCard.cvv || "", cardHolder: selectedCard.cardHolder || "" }); setEditingCard(selectedCard); setView("add"); }}>✏️ ערוך</button>
               <button style={{ ...S.backBtn }} onClick={() => setShareModal(selectedCard)}>🔗 שתף</button>
               <button style={{ ...S.backBtn, color: "#ef4444" }} onClick={() => setConfirmDeleteId(selectedCard.id)}>🗑</button>
             </div>
@@ -1208,9 +1208,9 @@ export default function App() {
           <Modal title="שתף כרטיס" onClose={() => setShareModal(null)}>
             <p style={{ color: "#9ca3af", fontSize: 14, marginBottom: 20 }}>שתף את פרטי הכרטיס עם מישהו אחר</p>
             <div style={{ background: "#0a0f1e", borderRadius: 12, padding: 16, marginBottom: 20, fontFamily: "monospace", fontSize: 13, color: "#a8b2d8", lineHeight: 1.8 }}>
-              🎁 {provider(shareModal.provider).name}<br/>
-              קוד: {shareModal.code}<br/>
-              יתרה: {fmt(shareModal.remainingAmount)}<br/>
+              🎁 {provider(shareModal.provider).name}<br />
+              קוד: {shareModal.code}<br />
+              יתרה: {fmt(shareModal.remainingAmount)}<br />
               {shareModal.expiry && `תוקף: ${fmtDate(shareModal.expiry)}`}
             </div>
             <button style={S.primaryBtn} onClick={() => shareCard(shareModal)}>
