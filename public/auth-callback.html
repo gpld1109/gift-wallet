@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>מתחבר...</title>
+  <style>
+    body { background: #0a0f1e; color: #e8eaf6; font-family: Arial, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; direction: rtl; }
+    .box { text-align: center; }
+    .emoji { font-size: 56px; margin-bottom: 16px; }
+    .title { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+    .sub { color: #6b7280; font-size: 14px; }
+    .spinner { width: 36px; height: 36px; border: 3px solid #1f2937; border-top-color: #6c63ff; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 20px auto; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <div class="emoji">🎁</div>
+    <div class="title">מתחבר לארנק הטבות...</div>
+    <div class="spinner"></div>
+    <div class="sub">מיד תועבר לאפליקציה</div>
+  </div>
+  <script>
+    // Extract tokens from URL hash or query
+    const hash = window.location.hash.substring(1);
+    const params = new URLSearchParams(hash || window.location.search);
+    
+    const accessToken = params.get("access_token");
+    const refreshToken = params.get("refresh_token");
+    const type = params.get("type");
+
+    if (accessToken && refreshToken) {
+      // Store tokens so the PWA can pick them up
+      const session = {
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        token_type: params.get("token_type") || "bearer",
+        expires_in: parseInt(params.get("expires_in") || "3600"),
+        expires_at: Math.floor(Date.now() / 1000) + parseInt(params.get("expires_in") || "3600"),
+      };
+      
+      // Save to localStorage under supabase's key
+      const storageKey = "giftwallet-auth";
+      try {
+        const existing = JSON.parse(localStorage.getItem(storageKey) || "{}");
+        existing.currentSession = session;
+        existing.expiresAt = session.expires_at;
+        localStorage.setItem(storageKey, JSON.stringify(existing));
+      } catch(e) {}
+
+      // Redirect to PWA
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 800);
+    } else {
+      // No tokens — just go home
+      window.location.href = "/";
+    }
+  </script>
+</body>
+</html>

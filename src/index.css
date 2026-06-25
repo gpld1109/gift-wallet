@@ -1,0 +1,35 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #0a0f1e;
+  color: #e8eaf6;
+  font-family: 'Segoe UI', 'Arial', sans-serif;
+  direction: rtl;
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* iOS safe area support */
+body {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+input, button, select, textarea {
+  font-family: inherit;
+}
+
+input[type="date"]::-webkit-inner-spin-button,
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2d3250; border-radius: 4px; }
