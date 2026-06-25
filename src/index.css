@@ -12,6 +12,16 @@ html, body {
   direction: rtl;
   overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
+  /* Keep everything within the viewport: prevent horizontal expansion and let
+     long unbreakable strings (card codes, notes, emails) wrap instead of widen. */
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-wrap: break-word;
+}
+
+#root {
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 /* iOS safe area support */

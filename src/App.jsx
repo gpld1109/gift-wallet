@@ -44,7 +44,7 @@ const provider = (id) => PROVIDERS.find((p) => p.id === id) || PROVIDERS[PROVIDE
 
 function Toast({ toast }) {
   return (
-    <div style={{ position: "fixed", bottom: 28, left: "50%", transform: "translateX(-50%)", background: toast.type === "error" ? "#ef4444" : toast.type === "warn" ? "#f59e0b" : "#10b981", color: "#fff", padding: "12px 28px", borderRadius: 40, fontWeight: 700, fontSize: 14, zIndex: 9999, whiteSpace: "nowrap", boxShadow: "0 8px 32px #0008", fontFamily: "inherit" }}>
+    <div style={{ position: "fixed", bottom: 28, left: "50%", transform: "translateX(-50%)", background: toast.type === "error" ? "#ef4444" : toast.type === "warn" ? "#f59e0b" : "#10b981", color: "#fff", padding: "12px 28px", borderRadius: 40, fontWeight: 700, fontSize: 14, zIndex: 9999, maxWidth: "90vw", textAlign: "center", boxShadow: "0 8px 32px #0008", fontFamily: "inherit" }}>
       {toast.msg}
     </div>
   );
@@ -1435,14 +1435,14 @@ export default function App() {
             </div>
 
             <div style={{ display: "flex", gap: 12 }}>
-              <div style={{ flex: 2 }}>
+              <div style={{ flex: 2, minWidth: 0 }}>
                 <div style={{ color: "#6b7280", fontSize: 11, marginBottom: 4 }}>קוד כרטיס</div>
-                <div style={{ fontFamily: "monospace", fontSize: 15, color: "#e8eaf6", letterSpacing: 2 }}>
+                <div style={{ fontFamily: "monospace", fontSize: 15, color: "#e8eaf6", letterSpacing: 2, overflowWrap: "anywhere" }}>
                   {revealedCards[selectedCard.id] ? selectedCard.code : "•••• •••• ••••"}
                 </div>
               </div>
               {selectedCard.cvv && (
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ color: "#6b7280", fontSize: 11, marginBottom: 4 }}>CVV</div>
                   <div style={{ fontFamily: "monospace", fontSize: 15, color: "#e8eaf6", letterSpacing: 2 }}>
                     {revealedCards[selectedCard.id] ? selectedCard.cvv : "•••"}
