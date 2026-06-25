@@ -13,6 +13,8 @@ import {
   normalizeRecoveryCode,
   decryptAny,
   encryptCode,
+  createPinRecord,
+  verifyPinRecord,
 } from "../src/crypto.js";
 
 let passed = 0;
@@ -134,6 +136,14 @@ await test("migration round-trip: legacy 'enc:' → v2 stays readable", async ()
   // after migration, a fresh unlock can still read it
   const { dek: dek2 } = await unlockVault("pw", keyRecord);
   assert.equal(await decryptAny(migrated, dek2, userId), "CARD-9999");
+});
+
+await test("reveal PIN: correct verifies, wrong fails, record hides the PIN", async () => {
+  const rec = await createPinRecord("135790");
+  assert.equal(await verifyPinRecord("135790", rec), true);
+  assert.equal(await verifyPinRecord("000000", rec), false);
+  assert.equal(await verifyPinRecord("135790", null), false);
+  assert.ok(!JSON.stringify(rec).includes("135790"), "stored record must not contain the PIN");
 });
 
 console.log(`\n${passed} passed`);

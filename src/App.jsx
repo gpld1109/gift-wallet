@@ -4,6 +4,7 @@ import { supabase } from "./supabase";
 import {
   createVault, unlockVault, unlockWithRecovery, rewrapPassphrase, rewrapRecovery,
   encryptField, decryptAny, generateRecoveryCode,
+  createPinRecord, verifyPinRecord,
 } from "./crypto";
 import PrivacyPolicy from "./legal/PrivacyPolicy";
 import TermsOfService from "./legal/TermsOfService";
@@ -212,6 +213,74 @@ function ChangePassphraseForm({ onSave }) {
       {error && <div role="alert" style={{ color: "#ef4444", fontSize: 13, marginBottom: 12 }}>{error}</div>}
       <button style={vaultBtn(false)} onClick={submit}>שמור סיסמה חדשה</button>
     </>
+  );
+}
+
+// Numeric keypad used as a quick "reveal" gate. mode="verify" calls onVerify(pin)
+// (async → boolean); mode="set" collects + confirms then calls onSet(pin).
+function RevealPinPad({ mode = "verify", length = 6, title, subtitle, onVerify, onSet, onCancel }) {
+  const [digits, setDigits] = useState("");
+  const [confirm, setConfirm] = useState(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [fails, setFails] = useState(0);
+  const [lockUntil, setLockUntil] = useState(0);
+  const locked = Date.now() < lockUntil;
+
+  const submit = async (pin) => {
+    if (mode === "verify") {
+      setBusy(true);
+      const ok = await onVerify(pin);
+      setBusy(false);
+      if (!ok) {
+        const f = fails + 1;
+        setDigits("");
+        if (f >= 5) { setLockUntil(Date.now() + 30000); setFails(0); setError("יותר מדי ניסיונות — המתן 30 שניות"); }
+        else { setFails(f); setError("קוד שגוי"); }
+      }
+    } else if (confirm === null) {
+      setConfirm(pin); setDigits(""); setError("");
+    } else if (confirm === pin) {
+      onSet(pin);
+    } else {
+      setConfirm(null); setDigits(""); setError("הקודים לא תואמים");
+    }
+  };
+
+  const press = (d) => {
+    if (busy || locked) return;
+    const next = digits + d;
+    if (next.length > length) return;
+    setDigits(next); setError("");
+    if (next.length === length) setTimeout(() => submit(next), 120);
+  };
+
+  const sub = mode === "set"
+    ? (confirm === null ? `בחר קוד (${length} ספרות)` : "אמת את הקוד שוב")
+    : (subtitle || "");
+
+  return (
+    <div style={{ textAlign: "center", padding: "6px 0" }}>
+      <div style={{ fontSize: 38, marginBottom: 8 }}>🔢</div>
+      <div style={{ fontSize: 17, fontWeight: 700, color: "#e8eaf6", marginBottom: 4 }}>{title || "הכנס קוד"}</div>
+      {sub && <div style={{ color: "#8892b0", fontSize: 13, marginBottom: 20 }}>{sub}</div>}
+      <div style={{ display: "flex", gap: 12, justifyContent: "center", marginBottom: 22 }}>
+        {Array.from({ length }).map((_, i) => (
+          <div key={i} style={{ width: 16, height: 16, borderRadius: "50%", background: digits.length > i ? "#6c63ff" : "#2d3250", border: "2px solid #2d3250", transition: "all 0.2s" }} />
+        ))}
+      </div>
+      {error && <div role="alert" style={{ color: "#ef4444", fontSize: 13, marginBottom: 14 }}>{error}</div>}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, maxWidth: 260, margin: "0 auto" }}>
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9, "", 0, "⌫"].map((d, i) => (
+          <button key={i} disabled={busy || locked}
+            style={{ padding: "16px 0", borderRadius: 14, background: d === "" ? "transparent" : "#1e2235", border: "none", color: "#e8eaf6", fontSize: 21, fontWeight: 700, cursor: d === "" || busy || locked ? "default" : "pointer", fontFamily: "inherit", opacity: busy || locked ? 0.5 : 1 }}
+            onClick={() => { if (d === "⌫") setDigits(p => p.slice(0, -1)); else if (d !== "") press(String(d)); }}>
+            {d}
+          </button>
+        ))}
+      </div>
+      {onCancel && <button style={{ marginTop: 18, background: "none", border: "none", color: "#8892b0", fontSize: 14, cursor: "pointer", fontFamily: "inherit" }} onClick={onCancel}>ביטול</button>}
+    </div>
   );
 }
 
@@ -464,6 +533,12 @@ export default function App() {
   const [recoveryCodeToShow, setRecoveryCodeToShow] = useState(null);
   const [securityModal, setSecurityModal] = useState(null); // null | "change" | "regen"
   const [vaultBusy, setVaultBusy] = useState(false);
+  // Optional reveal PIN: a quick local gate before a card code is shown on screen.
+  const [revealPinRecord, setRevealPinRecord] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("gw_reveal_pin")); } catch { return null; }
+  });
+  const [revealPinModal, setRevealPinModal] = useState(null); // cardId awaiting the reveal PIN
+  const [pinSetModal, setPinSetModal] = useState(null);       // null | "set" | "remove"
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState("dashboard");
@@ -797,8 +872,27 @@ export default function App() {
 
   // ── Reveal sensitive data ──
   // The vault is already unlocked (passphrase entered at login), so the data is in
-  // memory. Revealing just toggles visibility, with a 30s auto-hide for shoulder-surfing.
-  const revealSensitiveData = (card) => doReveal(card.id, card);
+  // memory. If a reveal PIN is set, require it first (shoulder-surf gate); otherwise
+  // reveal directly. Either way the data auto-hides after 30s.
+  const revealSensitiveData = (card) => {
+    if (revealPinRecord) { setRevealPinModal(card.id); return; }
+    doReveal(card.id, card);
+  };
+
+  const handleSetRevealPin = async (pin) => {
+    const rec = await createPinRecord(pin);
+    localStorage.setItem("gw_reveal_pin", JSON.stringify(rec));
+    setRevealPinRecord(rec);
+    setPinSetModal(null);
+    showToast("קוד חשיפה הוגדר 🔒");
+  };
+
+  const handleRemoveRevealPin = () => {
+    localStorage.removeItem("gw_reveal_pin");
+    setRevealPinRecord(null);
+    setPinSetModal(null);
+    showToast("קוד החשיפה הוסר");
+  };
 
   const doReveal = (cardId, card) => {
     setRevealedCards(prev => ({
@@ -978,6 +1072,17 @@ export default function App() {
               <div style={{ color: "#10b981", fontSize: 14 }}>✓ הקודים שלך מוצפנים בסיסמה (נדרשת בכל כניסה)</div>
               <button style={S.outlineBtn} onClick={() => setSecurityModal("change")}>🔑 שנה סיסמת הצפנה</button>
               <button style={S.outlineBtn} onClick={() => setSecurityModal("regen")}>♻️ צור קוד שחזור חדש</button>
+              <div style={{ height: 1, background: "#1f2937", margin: "4px 0" }} />
+              <div style={{ color: "#9ca3af", fontSize: 13 }}>קוד חשיפה — נדרש לפני הצגת קוד של כרטיס</div>
+              {revealPinRecord ? (
+                <>
+                  <div style={{ color: "#10b981", fontSize: 14 }}>✓ קוד חשיפה פעיל</div>
+                  <button style={S.outlineBtn} onClick={() => setPinSetModal("set")}>שנה קוד חשיפה</button>
+                  <button style={{ ...S.outlineBtn, borderColor: "#ef4444", color: "#ef4444" }} onClick={() => setPinSetModal("remove")}>הסר קוד חשיפה</button>
+                </>
+              ) : (
+                <button style={S.outlineBtn} onClick={() => setPinSetModal("set")}>🔢 הגדר קוד חשיפה (PIN)</button>
+              )}
             </div>
           </div>
 
@@ -1042,6 +1147,24 @@ export default function App() {
         {recoveryCodeToShow && (
           <Modal title="קוד שחזור חדש" onClose={() => setRecoveryCodeToShow(null)}>
             <RecoveryScreen code={recoveryCodeToShow} inModal onDone={() => setRecoveryCodeToShow(null)} />
+          </Modal>
+        )}
+
+        {pinSetModal === "set" && (
+          <Modal title="קוד חשיפה" onClose={() => setPinSetModal(null)}>
+            <RevealPinPad mode="set" title="בחר קוד חשיפה" onSet={handleSetRevealPin} onCancel={() => setPinSetModal(null)} />
+          </Modal>
+        )}
+
+        {pinSetModal === "remove" && (
+          <Modal title="הסר קוד חשיפה" onClose={() => setPinSetModal(null)}>
+            <RevealPinPad mode="verify" title="אמת את הקוד הנוכחי"
+              onVerify={async (pin) => {
+                const ok = await verifyPinRecord(pin, revealPinRecord);
+                if (ok) handleRemoveRevealPin();
+                return ok;
+              }}
+              onCancel={() => setPinSetModal(null)} />
           </Modal>
         )}
 
@@ -1365,6 +1488,26 @@ export default function App() {
             ))}
           </div>
         </div>
+
+        {revealPinModal && (
+          <Modal title="הצגת קוד" onClose={() => setRevealPinModal(null)}>
+            <RevealPinPad
+              mode="verify"
+              title="הכנס קוד חשיפה"
+              subtitle="הפרטים יוצגו ל-30 שניות"
+              onVerify={async (pin) => {
+                const ok = await verifyPinRecord(pin, revealPinRecord);
+                if (ok) {
+                  const c = cards.find(x => x.id === revealPinModal);
+                  setRevealPinModal(null);
+                  if (c) doReveal(c.id, c);
+                }
+                return ok;
+              }}
+              onCancel={() => setRevealPinModal(null)}
+            />
+          </Modal>
+        )}
 
         {confirmDeleteId && (
           <Modal title="מחק כרטיס?" onClose={() => setConfirmDeleteId(null)}>

@@ -185,6 +185,36 @@ export function normalizeRecoveryCode(input) {
   return String(input || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
+// ── Reveal PIN (a local shoulder-surf gate before showing a code) ─────────────
+// This does NOT protect the ciphertext — the passphrase already does that at
+// login. It only gates the on-screen reveal. Stored as PBKDF2-SHA256(salt, pin)
+// so the value sitting in localStorage is not the PIN nor a weak/guessable hash.
+const PIN_ITERATIONS = 200000;
+
+async function pbkdf2Hash(pin, saltBytes, iterations) {
+  const base = await subtle.importKey("raw", new TextEncoder().encode(String(pin)), { name: "PBKDF2" }, false, ["deriveBits"]);
+  const bits = await subtle.deriveBits({ name: "PBKDF2", salt: saltBytes, iterations, hash: "SHA-256" }, base, 256);
+  return bytesToB64(new Uint8Array(bits));
+}
+
+function timingSafeEqual(a, b) {
+  if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) return false;
+  let r = 0;
+  for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return r === 0;
+}
+
+export async function createPinRecord(pin) {
+  const salt = randomBytes(16);
+  return { salt: bytesToB64(salt), hash: await pbkdf2Hash(pin, salt, PIN_ITERATIONS), iterations: PIN_ITERATIONS };
+}
+
+export async function verifyPinRecord(pin, record) {
+  if (!record || !record.hash || !record.salt) return false;
+  const hash = await pbkdf2Hash(pin, b64ToBytes(record.salt), record.iterations || PIN_ITERATIONS);
+  return timingSafeEqual(hash, record.hash);
+}
+
 // ── LEGACY (v1) — kept ONLY to migrate old data ───────────────────────────────
 // Old scheme: key = PBKDF2(userId + APP_SECRET). Insecure (APP_SECRET shipped in
 // the bundle, userId stored next to the data) — used only to read existing cards
