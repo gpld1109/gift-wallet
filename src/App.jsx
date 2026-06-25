@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { supabase } from "./supabase";
-import { encryptCode, decryptCode } from "./crypto";
+import {
+  createVault, unlockVault, unlockWithRecovery, rewrapPassphrase, rewrapRecovery,
+  encryptField, decryptAny, generateRecoveryCode,
+} from "./crypto";
 import PrivacyPolicy from "./legal/PrivacyPolicy";
 import TermsOfService from "./legal/TermsOfService";
 
@@ -60,62 +63,155 @@ function Modal({ title, onClose, children }) {
   );
 }
 
-// ─── PIN PAD ──────────────────────────────────────────────────────────────────
+// ─── VAULT (passphrase + recovery code) ───────────────────────────────────────
 
-function PinPad({ title, subtitle, onSuccess, onCancel, mode = "verify", storedHash }) {
-  const [digits, setDigits] = useState([]);
+const vaultInput = { width: "100%", background: "#0a0f1e", border: "1px solid #1f2937", borderRadius: 12, padding: "13px 14px", color: "#e8eaf6", fontSize: 15, fontFamily: "inherit", outline: "none", boxSizing: "border-box", marginBottom: 12 };
+const vaultLabel = { display: "block", color: "#9ca3af", fontSize: 12, fontWeight: 700, marginBottom: 7 };
+const vaultBtn = (disabled) => ({ width: "100%", background: disabled ? "#374151" : "linear-gradient(135deg, #6c63ff, #a855f7)", border: "none", color: "#fff", padding: 14, borderRadius: 14, fontSize: 15, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit" });
+
+function VaultShell({ children }) {
+  return (
+    <div style={{ minHeight: "100vh", background: "#0a0f1e", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "'Segoe UI', Arial, sans-serif", direction: "rtl" }}>
+      <div style={{ width: "100%", maxWidth: 400 }}>
+        <div style={{ textAlign: "center", marginBottom: 24 }}>
+          <div style={{ fontSize: 56, marginBottom: 12 }}>🔐</div>
+          <h1 style={{ fontSize: 24, fontWeight: 800, color: "#f3f4f6", margin: 0 }}>ארנק הטבות</h1>
+        </div>
+        <div style={{ background: "#111827", borderRadius: 20, padding: 28, border: "1px solid #1f2937" }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VaultSetup({ onCreate, busy }) {
+  const [pass, setPass] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
-  const [confirm, setConfirm] = useState(null);
+  const submit = () => {
+    if (pass.length < 8) return setError("הסיסמה חייבת להיות לפחות 8 תווים");
+    if (pass !== confirm) return setError("הסיסמאות לא תואמות");
+    setError("");
+    onCreate(pass);
+  };
+  return (
+    <>
+      <h2 style={{ color: "#e8eaf6", fontSize: 18, fontWeight: 700, marginTop: 0, marginBottom: 6 }}>הגדרת סיסמת הצפנה</h2>
+      <p style={{ color: "#8892b0", fontSize: 13, lineHeight: 1.6, marginTop: 0, marginBottom: 20 }}>
+        הסיסמה הזו מצפינה את הקודים שלך. היא <strong style={{ color: "#a8b2d8" }}>נשמרת רק אצלך</strong> ולא נשלחת לשרת — כך שגם אם מישהו יפרוץ למסד הנתונים, הוא לא יוכל לקרוא את הקודים בלעדיה.
+      </p>
+      <label htmlFor="vault-pass" style={vaultLabel}>סיסמה (לפחות 8 תווים)</label>
+      <input id="vault-pass" type="password" autoComplete="new-password" style={vaultInput} value={pass} onChange={e => { setPass(e.target.value); setError(""); }} dir="ltr" />
+      <label htmlFor="vault-pass2" style={vaultLabel}>אימות סיסמה</label>
+      <input id="vault-pass2" type="password" autoComplete="new-password" style={vaultInput} value={confirm} onChange={e => { setConfirm(e.target.value); setError(""); }} onKeyDown={e => e.key === "Enter" && submit()} dir="ltr" />
+      {error && <div role="alert" style={{ color: "#ef4444", fontSize: 13, marginBottom: 12 }}>{error}</div>}
+      <button style={vaultBtn(busy)} onClick={submit} disabled={busy}>{busy ? "מצפין..." : "הגדר והמשך →"}</button>
+      <p style={{ color: "#4b5563", fontSize: 11, textAlign: "center", marginTop: 14, marginBottom: 0, lineHeight: 1.6 }}>
+        ⚠️ אם תשכח את הסיסמה תצטרך את קוד השחזור שיוצג בשלב הבא. בלי אחד מהם לא ניתן לשחזר את הקודים.
+      </p>
+    </>
+  );
+}
 
-  function hashPin(pin) {
-    let h = 0;
-    for (let i = 0; i < pin.length; i++) { h = (Math.imul(31, h) + pin.charCodeAt(i)) | 0; }
-    return h.toString();
-  }
+function RecoveryScreen({ code, onDone, inModal }) {
+  const [saved, setSaved] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copy = () => { try { navigator.clipboard?.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch {} };
+  return (
+    <>
+      <h2 style={{ color: "#e8eaf6", fontSize: 18, fontWeight: 700, marginTop: 0, marginBottom: 6 }}>קוד השחזור שלך</h2>
+      <p style={{ color: "#8892b0", fontSize: 13, lineHeight: 1.6, marginTop: 0, marginBottom: 18 }}>
+        זה הגיבוי היחיד אם תשכח את הסיסמה. <strong style={{ color: "#fbbf24" }}>שמור אותו עכשיו במקום בטוח</strong> (צילום מסך / מנהל סיסמאות). הוא לא יוצג שוב.
+      </p>
+      <div style={{ background: "#0a0f1e", border: "1px dashed #2d3250", borderRadius: 12, padding: "18px 14px", textAlign: "center", marginBottom: 12 }}>
+        <div style={{ fontFamily: "monospace", fontSize: 20, fontWeight: 700, color: "#a5f3fc", letterSpacing: 2, direction: "ltr", userSelect: "all" }}>{code}</div>
+      </div>
+      <button style={{ ...vaultBtn(false), background: "#1e2235", marginBottom: 16 }} onClick={copy}>{copied ? "✓ הועתק" : "📋 העתק קוד"}</button>
+      <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", color: "#ccd6f6", fontSize: 14, marginBottom: 16 }}>
+        <input type="checkbox" checked={saved} onChange={e => setSaved(e.target.checked)} style={{ accentColor: "#6c63ff", width: 18, height: 18 }} />
+        שמרתי את קוד השחזור במקום בטוח
+      </label>
+      <button style={vaultBtn(!saved)} onClick={() => saved && onDone()} disabled={!saved}>{inModal ? "סגור" : "סיימתי, כניסה לארנק →"}</button>
+    </>
+  );
+}
 
-  const press = (d) => {
-    if (digits.length >= 4) return;
-    const next = [...digits, d];
-    setDigits(next);
-    if (next.length === 4) {
-      setTimeout(() => {
-        const pin = next.join("");
-        if (mode === "verify") {
-          if (hashPin(pin) === storedHash) { onSuccess(pin); }
-          else { setError("PIN שגוי, נסה שוב"); setDigits([]); }
-        } else {
-          if (!confirm) { setConfirm(pin); setDigits([]); setError(""); }
-          else if (confirm === pin) { onSuccess(pin); }
-          else { setError("הקודים לא תואמים"); setConfirm(null); setDigits([]); }
-        }
-      }, 150);
-    }
+function VaultUnlock({ email, onUnlock, onRecover, onSignOut }) {
+  const [mode, setMode] = useState("pass"); // pass | recovery
+  const [pass, setPass] = useState("");
+  const [recovery, setRecovery] = useState("");
+  const [newPass, setNewPass] = useState("");
+  const [newPass2, setNewPass2] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const doUnlock = async () => {
+    if (!pass) return;
+    setBusy(true); setError("");
+    const ok = await onUnlock(pass);
+    setBusy(false);
+    if (!ok) { setError("סיסמה שגויה"); setPass(""); }
+  };
+  const doRecover = async () => {
+    if (newPass.length < 8) return setError("הסיסמה החדשה חייבת להיות לפחות 8 תווים");
+    if (newPass !== newPass2) return setError("הסיסמאות החדשות לא תואמות");
+    setBusy(true); setError("");
+    const ok = await onRecover(recovery, newPass);
+    setBusy(false);
+    if (!ok) setError("קוד שחזור שגוי");
   };
 
+  if (mode === "recovery") {
+    return (
+      <>
+        <h2 style={{ color: "#e8eaf6", fontSize: 18, fontWeight: 700, marginTop: 0, marginBottom: 6 }}>שחזור באמצעות קוד</h2>
+        <p style={{ color: "#8892b0", fontSize: 13, lineHeight: 1.6, marginTop: 0, marginBottom: 18 }}>הכנס את קוד השחזור שקיבלת, ובחר סיסמה חדשה.</p>
+        <label htmlFor="rec-code" style={vaultLabel}>קוד שחזור</label>
+        <input id="rec-code" style={{ ...vaultInput, fontFamily: "monospace", letterSpacing: 1 }} value={recovery} onChange={e => { setRecovery(e.target.value); setError(""); }} dir="ltr" placeholder="XXXXX-XXXXX-XXXXX-XXXXX" />
+        <label htmlFor="rec-new" style={vaultLabel}>סיסמה חדשה</label>
+        <input id="rec-new" type="password" autoComplete="new-password" style={vaultInput} value={newPass} onChange={e => { setNewPass(e.target.value); setError(""); }} dir="ltr" />
+        <label htmlFor="rec-new2" style={vaultLabel}>אימות סיסמה חדשה</label>
+        <input id="rec-new2" type="password" autoComplete="new-password" style={vaultInput} value={newPass2} onChange={e => { setNewPass2(e.target.value); setError(""); }} onKeyDown={e => e.key === "Enter" && doRecover()} dir="ltr" />
+        {error && <div role="alert" style={{ color: "#ef4444", fontSize: 13, marginBottom: 12 }}>{error}</div>}
+        <button style={vaultBtn(busy)} onClick={doRecover} disabled={busy}>{busy ? "משחזר..." : "שחזר והגדר סיסמה →"}</button>
+        <button style={{ width: "100%", background: "none", border: "none", color: "#6b7280", fontSize: 13, cursor: "pointer", fontFamily: "inherit", marginTop: 14 }} onClick={() => { setMode("pass"); setError(""); }}>← חזרה</button>
+      </>
+    );
+  }
+
   return (
-    <div style={{ textAlign: "center", padding: "10px 0" }}>
-      <div style={{ fontSize: 42, marginBottom: 8 }}>🔒</div>
-      <div style={{ fontSize: 18, fontWeight: 700, color: "#e8eaf6", marginBottom: 4 }}>{title || "הכנס PIN"}</div>
-      <div style={{ color: "#8892b0", fontSize: 13, marginBottom: 24 }}>
-        {mode === "set" && !confirm ? "הכנס PIN חדש (4 ספרות)" : mode === "set" && confirm ? "אמת את ה-PIN שוב" : subtitle || "הכנס PIN לכניסה"}
-      </div>
-      <div style={{ display: "flex", gap: 14, justifyContent: "center", marginBottom: 24 }}>
-        {[0, 1, 2, 3].map(i => (
-          <div key={i} style={{ width: 18, height: 18, borderRadius: "50%", background: digits.length > i ? "#6c63ff" : "#2d3250", transition: "all 0.2s", border: "2px solid #2d3250" }} />
-        ))}
-      </div>
-      {error && <div style={{ color: "#ef4444", fontSize: 13, marginBottom: 16 }}>{error}</div>}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, maxWidth: 260, margin: "0 auto" }}>
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9, "", 0, "⌫"].map((d, i) => (
-          <button key={i}
-            style={{ padding: "18px 0", borderRadius: 14, background: d === "" ? "transparent" : "#1e2235", border: "none", color: "#e8eaf6", fontSize: 22, fontWeight: 700, cursor: d === "" ? "default" : "pointer", fontFamily: "inherit" }}
-            onClick={() => { if (d === "⌫") setDigits(prev => prev.slice(0, -1)); else if (d !== "") press(String(d)); }}>
-            {d}
-          </button>
-        ))}
-      </div>
-      {onCancel && <button style={{ marginTop: 20, background: "none", border: "none", color: "#8892b0", fontSize: 14, cursor: "pointer", fontFamily: "inherit" }} onClick={onCancel}>ביטול</button>}
-    </div>
+    <>
+      <h2 style={{ color: "#e8eaf6", fontSize: 18, fontWeight: 700, marginTop: 0, marginBottom: 6 }}>פתיחת הארנק</h2>
+      <p style={{ color: "#8892b0", fontSize: 13, marginTop: 0, marginBottom: 18 }}>{email}</p>
+      <label htmlFor="unlock-pass" style={vaultLabel}>סיסמת הצפנה</label>
+      <input id="unlock-pass" type="password" autoComplete="current-password" autoFocus style={vaultInput} value={pass} onChange={e => { setPass(e.target.value); setError(""); }} onKeyDown={e => e.key === "Enter" && doUnlock()} dir="ltr" />
+      {error && <div role="alert" style={{ color: "#ef4444", fontSize: 13, marginBottom: 12 }}>{error}</div>}
+      <button style={vaultBtn(busy)} onClick={doUnlock} disabled={busy}>{busy ? "פותח..." : "🔓 פתח"}</button>
+      <button style={{ width: "100%", background: "none", border: "none", color: "#6c63ff", fontSize: 13, cursor: "pointer", fontFamily: "inherit", marginTop: 14, fontWeight: 600 }} onClick={() => { setMode("recovery"); setError(""); }}>שכחת סיסמה? שחזור עם קוד</button>
+      <button style={{ width: "100%", background: "none", border: "none", color: "#4b5563", fontSize: 12, cursor: "pointer", fontFamily: "inherit", marginTop: 16 }} onClick={onSignOut}>🚪 התנתק</button>
+    </>
+  );
+}
+
+function ChangePassphraseForm({ onSave }) {
+  const [pass, setPass] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState("");
+  const submit = () => {
+    if (pass.length < 8) return setError("הסיסמה חייבת להיות לפחות 8 תווים");
+    if (pass !== confirm) return setError("הסיסמאות לא תואמות");
+    onSave(pass);
+  };
+  return (
+    <>
+      <label htmlFor="ch-pass" style={vaultLabel}>סיסמה חדשה (לפחות 8 תווים)</label>
+      <input id="ch-pass" type="password" autoComplete="new-password" style={vaultInput} value={pass} onChange={e => { setPass(e.target.value); setError(""); }} dir="ltr" />
+      <label htmlFor="ch-pass2" style={vaultLabel}>אימות סיסמה</label>
+      <input id="ch-pass2" type="password" autoComplete="new-password" style={vaultInput} value={confirm} onChange={e => { setConfirm(e.target.value); setError(""); }} onKeyDown={e => e.key === "Enter" && submit()} dir="ltr" />
+      {error && <div role="alert" style={{ color: "#ef4444", fontSize: 13, marginBottom: 12 }}>{error}</div>}
+      <button style={vaultBtn(false)} onClick={submit}>שמור סיסמה חדשה</button>
+    </>
   );
 }
 
@@ -360,9 +456,14 @@ function StatsView({ cards, onBack }) {
 export default function App() {
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [pinLocked, setPinLocked] = useState(false);
-  const [pinHash, setPinHash] = useState(() => localStorage.getItem("gw_pin") || null);
-  const [pinModal, setPinModal] = useState(null); // null | "set" | "remove"
+  // Vault (envelope encryption): the DEK lives only in memory while the app is open.
+  const [vaultState, setVaultState] = useState("loading"); // loading | setup | recovery | locked | open
+  const [dek, setDek] = useState(null);
+  const dekRawRef = useRef(null); // raw DEK bytes, kept in memory for re-wrapping (change passphrase / new recovery)
+  const [keyRecord, setKeyRecord] = useState(null);
+  const [recoveryCodeToShow, setRecoveryCodeToShow] = useState(null);
+  const [securityModal, setSecurityModal] = useState(null); // null | "change" | "regen"
+  const [vaultBusy, setVaultBusy] = useState(false);
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState("dashboard");
@@ -388,10 +489,6 @@ export default function App() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setAuthLoading(false);
-      // Lock with PIN if set
-      if (session && localStorage.getItem("gw_pin")) {
-        setPinLocked(true);
-      }
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
@@ -400,11 +497,29 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // ── Load cards from Supabase ──
+  // ── Load the vault key record; decide whether the user needs setup or unlock ──
   useEffect(() => {
-    if (!session) return;
-    loadCardsFromDB();
+    if (!session) {
+      setDek(null); dekRawRef.current = null; setKeyRecord(null); setCards([]); setVaultState("loading");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setVaultState("loading");
+      const { data, error } = await supabase
+        .from("user_keys").select("*").eq("user_id", session.user.id).maybeSingle();
+      if (cancelled) return;
+      if (error) { showToast("שגיאה בטעינת מפתח האבטחה", "error"); return; }
+      if (!data) setVaultState("setup");
+      else { setKeyRecord(data); setVaultState("locked"); }
+    })();
+    return () => { cancelled = true; };
   }, [session]);
+
+  // ── Load cards once the vault is unlocked (DEK in memory) ──
+  useEffect(() => {
+    if (session && dek) loadCardsFromDB();
+  }, [session, dek]);
 
   // ── Expiry alerts ──
   useEffect(() => {
@@ -417,6 +532,101 @@ export default function App() {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3500);
   }, []);
+
+  // ─── Vault: setup / unlock / recovery / key rotation ────────────────────────
+
+  // One-time migration: re-encrypt any card fields still in the legacy "enc:" form
+  // (or left as plaintext) into the new v2 format using the unlocked DEK. Idempotent.
+  const migrateLegacyCards = async (dekKey) => {
+    try {
+      const { data: rows } = await supabase
+        .from("cards").select("id, code, cvv").eq("user_id", session.user.id);
+      for (const r of rows || []) {
+        const updates = {};
+        for (const field of ["code", "cvv"]) {
+          const val = r[field];
+          if (!val || val.startsWith("v2:")) continue;       // already migrated or empty
+          const plain = await decryptAny(val, dekKey, session.user.id);
+          // Guard: only re-encrypt if we actually recovered plaintext. If legacy
+          // decryption failed, decryptAny returns the original "enc:" string — never
+          // overwrite that, or the real value would be lost.
+          if (typeof plain === "string" && plain.startsWith("enc:")) continue;
+          updates[field] = await encryptField(plain, dekKey);
+        }
+        if (Object.keys(updates).length) await supabase.from("cards").update(updates).eq("id", r.id);
+      }
+    } catch {
+      // Non-fatal: reads still work via decryptAny; migration will retry on next unlock.
+    }
+  };
+
+  const handleCreateVault = async (passphrase) => {
+    setVaultBusy(true);
+    try {
+      const recoveryCode = generateRecoveryCode();
+      const { dek: newDek, dekRaw, keyRecord: rec } = await createVault(passphrase, recoveryCode);
+      const { error } = await supabase.from("user_keys").insert({ user_id: session.user.id, ...rec });
+      if (error) { showToast("שגיאה בשמירת המפתח", "error"); setVaultBusy(false); return; }
+      dekRawRef.current = dekRaw;
+      setKeyRecord({ user_id: session.user.id, ...rec });
+      setDek(newDek);
+      await migrateLegacyCards(newDek);
+      setRecoveryCodeToShow(recoveryCode);
+      setVaultState("recovery");
+    } finally {
+      setVaultBusy(false);
+    }
+  };
+
+  const handleUnlock = async (passphrase) => {
+    try {
+      const { dek: d, dekRaw } = await unlockVault(passphrase, keyRecord);
+      dekRawRef.current = dekRaw;
+      setDek(d);
+      setVaultState("open");
+      migrateLegacyCards(d); // finish any interrupted migration in the background
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleRecover = async (recoveryCode, newPassphrase) => {
+    try {
+      const { dek: d, dekRaw } = await unlockWithRecovery(recoveryCode, keyRecord);
+      const upd = await rewrapPassphrase(dekRaw, newPassphrase);
+      const { error } = await supabase.from("user_keys").update(upd).eq("user_id", session.user.id);
+      if (error) { showToast("שגיאה בעדכון הסיסמה", "error"); return false; }
+      dekRawRef.current = dekRaw;
+      setKeyRecord({ ...keyRecord, ...upd });
+      setDek(d);
+      setVaultState("open");
+      showToast("הסיסמה אופסה בהצלחה ✓");
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleChangePassphrase = async (newPassphrase) => {
+    if (!dekRawRef.current) return showToast("צריך לפתוח את הארנק קודם", "error");
+    const upd = await rewrapPassphrase(dekRawRef.current, newPassphrase);
+    const { error } = await supabase.from("user_keys").update(upd).eq("user_id", session.user.id);
+    if (error) return showToast("שגיאה בעדכון הסיסמה", "error");
+    setKeyRecord(k => ({ ...k, ...upd }));
+    setSecurityModal(null);
+    showToast("הסיסמה עודכנה ✓");
+  };
+
+  const handleRegenerateRecovery = async () => {
+    if (!dekRawRef.current) return showToast("צריך לפתוח את הארנק קודם", "error");
+    const { recoveryCode, fields } = await rewrapRecovery(dekRawRef.current);
+    const { error } = await supabase.from("user_keys").update(fields).eq("user_id", session.user.id);
+    if (error) return showToast("שגיאה ביצירת קוד שחזור", "error");
+    setKeyRecord(k => ({ ...k, ...fields }));
+    setSecurityModal(null);
+    setRecoveryCodeToShow(recoveryCode); // shown in a modal while vaultState === "open"
+  };
 
   // ─── DB Operations ─────────────────────────────────────────────────────────
 
@@ -440,8 +650,8 @@ export default function App() {
         storeName: card.store_name,
         cardHolder: card.card_holder,
         createdAt: card.created_at,
-        code: await decryptCode(card.code, session.user.id),
-        cvv: await decryptCode(card.cvv, session.user.id),
+        code: await decryptAny(card.code, dek, session.user.id),
+        cvv: await decryptAny(card.cvv, dek, session.user.id),
         transactions: (txData || []).filter(t => t.card_id === card.id).map(t => ({
           id: t.id, date: t.date, store: t.store, purpose: t.purpose, amount: t.amount, notes: t.notes
         }))
@@ -467,8 +677,8 @@ export default function App() {
     if (editingCard) {
       const { error } = await supabase.from("cards").update({
         provider: form.provider,
-        code: await encryptCode(form.code.trim(), session.user.id),
-        cvv: await encryptCode(form.cvv.trim(), session.user.id),
+        code: await encryptField(form.code.trim(), dek),
+        cvv: await encryptField(form.cvv.trim(), dek),
         card_holder: form.cardHolder.trim() || null,
         original_amount: amount,
         remaining_amount: editingCard.remainingAmount + (amount - editingCard.originalAmount),
@@ -482,8 +692,8 @@ export default function App() {
     } else {
       const { error } = await supabase.from("cards").insert({
         user_id: session.user.id, provider: form.provider,
-        code: await encryptCode(form.code.trim(), session.user.id),
-        cvv: await encryptCode(form.cvv.trim(), session.user.id),
+        code: await encryptField(form.code.trim(), dek),
+        cvv: await encryptField(form.cvv.trim(), dek),
         card_holder: form.cardHolder.trim() || null,
         original_amount: amount, remaining_amount: amount,
         expiry: form.expiry || null, notes: form.notes, fully_used: false,
@@ -585,31 +795,10 @@ export default function App() {
     setShareModal(null);
   };
 
-  // ── Biometric / PIN reveal ──
-  const [pinRevealModal, setPinRevealModal] = useState(null); // cardId to reveal
-
-  const revealSensitiveData = async (card) => {
-    // If PIN is set — require it
-    if (pinHash) {
-      setPinRevealModal(card.id);
-      return;
-    }
-    // No PIN — try Face ID via native iOS (only works if supported without passkey)
-    try {
-      if (window.PublicKeyCredential) {
-        const supported = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-        if (supported) {
-          // Try native biometric without passkey requirement
-          await navigator.credentials.get({
-            mediation: "optional",
-            publicKey: undefined,
-          });
-        }
-      }
-    } catch { }
-    // Reveal directly
-    doReveal(card.id, card);
-  };
+  // ── Reveal sensitive data ──
+  // The vault is already unlocked (passphrase entered at login), so the data is in
+  // memory. Revealing just toggles visibility, with a 30s auto-hide for shoulder-surfing.
+  const revealSensitiveData = (card) => doReveal(card.id, card);
 
   const doReveal = (cardId, card) => {
     setRevealedCards(prev => ({
@@ -659,7 +848,7 @@ export default function App() {
           const { data: newCard, error: cardError } = await supabase.from("cards").insert({
             user_id: session.user.id,
             provider: card.provider || "other",
-            code: await encryptCode(card.code || "", session.user.id),
+            code: await encryptField(card.code || "", dek),
             original_amount: amount,
             remaining_amount: remaining,
             expiry: card.expiry || null,
@@ -718,27 +907,6 @@ export default function App() {
     return 0;
   });
 
-  // ─── PIN LOCK ─────────────────────────────────────────────────────────────
-  if (pinLocked && pinHash) {
-    return (
-      <div style={{ minHeight: "100vh", background: "#0a0f1e", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "'Segoe UI', Arial, sans-serif", direction: "rtl" }}>
-        <div style={{ width: "100%", maxWidth: 380 }}>
-          <div style={{ textAlign: "center", marginBottom: 8 }}>
-            <div style={{ fontSize: 48, marginBottom: 8 }}>🎁</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#6b7280" }}>ארנק הטבות</div>
-          </div>
-          <PinPad
-            title="נעול"
-            subtitle="הכנס PIN לכניסה"
-            mode="verify"
-            storedHash={pinHash}
-            onSuccess={() => setPinLocked(false)}
-          />
-        </div>
-      </div>
-    );
-  }
-
   // ─── LOADING / AUTH ───────────────────────────────────────────────────────
   if (authLoading) {
     return (
@@ -752,6 +920,40 @@ export default function App() {
   }
 
   if (!session) return <AuthScreen />;
+
+  // ─── VAULT GATES (must unlock before any card data is shown) ────────────────
+  if (vaultState === "loading") {
+    return (
+      <div style={{ minHeight: "100vh", background: "#0a0f1e", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ textAlign: "center", color: "#6b7280" }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🔐</div>
+          <div style={{ fontSize: 16 }}>טוען...</div>
+        </div>
+      </div>
+    );
+  }
+  if (vaultState === "setup") {
+    return <VaultShell><VaultSetup onCreate={handleCreateVault} busy={vaultBusy} /></VaultShell>;
+  }
+  if (vaultState === "recovery") {
+    return (
+      <VaultShell>
+        <RecoveryScreen code={recoveryCodeToShow} onDone={() => { setRecoveryCodeToShow(null); setVaultState("open"); }} />
+      </VaultShell>
+    );
+  }
+  if (vaultState === "locked") {
+    return (
+      <VaultShell>
+        <VaultUnlock
+          email={session.user.email}
+          onUnlock={handleUnlock}
+          onRecover={handleRecover}
+          onSignOut={() => supabase.auth.signOut()}
+        />
+      </VaultShell>
+    );
+  }
 
   // ─── LEGAL PAGES ──────────────────────────────────────────────────────────
   if (view === "privacy") return <PrivacyPolicy onBack={() => setView("settings")} />;
@@ -771,19 +973,12 @@ export default function App() {
           </header>
 
           <div style={S.sectionCard}>
-            <h3 style={S.sectionTitle}>🔒 נעילת PIN</h3>
-            {pinHash ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <div style={{ color: "#10b981", fontSize: 14 }}>✓ PIN פעיל — האפליקציה נעולה בפתיחה</div>
-                <button style={S.outlineBtn} onClick={() => setPinModal("set")}>שנה PIN</button>
-                <button style={{ ...S.outlineBtn, borderColor: "#ef4444", color: "#ef4444" }} onClick={() => setPinModal("remove")}>הסר PIN</button>
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <div style={{ color: "#6b7280", fontSize: 14 }}>האפליקציה לא נעולה</div>
-                <button style={S.primaryBtn} onClick={() => setPinModal("set")}>הגדר PIN</button>
-              </div>
-            )}
+            <h3 style={S.sectionTitle}>🔒 אבטחה והצפנה</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ color: "#10b981", fontSize: 14 }}>✓ הקודים שלך מוצפנים בסיסמה (נדרשת בכל כניסה)</div>
+              <button style={S.outlineBtn} onClick={() => setSecurityModal("change")}>🔑 שנה סיסמת הצפנה</button>
+              <button style={S.outlineBtn} onClick={() => setSecurityModal("regen")}>♻️ צור קוד שחזור חדש</button>
+            </div>
           </div>
 
           <div style={S.sectionCard}>
@@ -828,32 +1023,25 @@ export default function App() {
           </div>
         </div>
 
-        {pinModal && (
-          <Modal title={pinModal === "set" ? "הגדר PIN" : "הסר PIN"} onClose={() => setPinModal(null)}>
-            {pinModal === "remove" ? (
-              <PinPad mode="verify" storedHash={pinHash} title="אמת PIN קיים"
-                onSuccess={() => {
-                  localStorage.removeItem("gw_pin");
-                  setPinHash(null);
-                  setPinModal(null);
-                  showToast("PIN הוסר");
-                }}
-                onCancel={() => setPinModal(null)}
-              />
-            ) : (
-              <PinPad mode="set" title="הגדר PIN חדש"
-                onSuccess={(pin) => {
-                  let h = 0;
-                  for (let i = 0; i < pin.length; i++) { h = (Math.imul(31, h) + pin.charCodeAt(i)) | 0; }
-                  const hash = h.toString();
-                  localStorage.setItem("gw_pin", hash);
-                  setPinHash(hash);
-                  setPinModal(null);
-                  showToast("PIN נשמר 🔒");
-                }}
-                onCancel={() => setPinModal(null)}
-              />
-            )}
+        {securityModal === "change" && (
+          <Modal title="שנה סיסמת הצפנה" onClose={() => setSecurityModal(null)}>
+            <ChangePassphraseForm onSave={handleChangePassphrase} />
+          </Modal>
+        )}
+
+        {securityModal === "regen" && (
+          <Modal title="צור קוד שחזור חדש" onClose={() => setSecurityModal(null)}>
+            <p style={{ color: "#9ca3af", fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>
+              יצירת קוד שחזור חדש <strong style={{ color: "#fbbf24" }}>תבטל את הקוד הישן</strong>. רק הקוד החדש יעבוד מעכשיו.
+            </p>
+            <button style={S.primaryBtn} onClick={handleRegenerateRecovery}>צור קוד חדש</button>
+            <button style={{ ...S.outlineBtn, marginTop: 10 }} onClick={() => setSecurityModal(null)}>ביטול</button>
+          </Modal>
+        )}
+
+        {recoveryCodeToShow && (
+          <Modal title="קוד שחזור חדש" onClose={() => setRecoveryCodeToShow(null)}>
+            <RecoveryScreen code={recoveryCodeToShow} inModal onDone={() => setRecoveryCodeToShow(null)} />
           </Modal>
         )}
 
@@ -1097,7 +1285,7 @@ export default function App() {
                 <div style={{ marginBottom: 14, borderRadius: 18, overflow: "hidden", border: "1px solid #1f2937", position: "relative", background: "#111827", height: 120, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <div style={{ filter: "blur(12px)", position: "absolute", inset: 0, backgroundImage: `url(${selectedCard.image})`, backgroundSize: "cover", backgroundPosition: "center", opacity: 0.4 }} />
                   <button style={{ position: "relative", zIndex: 1, background: "#000a", border: "1px solid #2d3250", color: "#fff", padding: "10px 20px", borderRadius: 20, cursor: "pointer", fontSize: 14, fontWeight: 600, fontFamily: "inherit" }} onClick={() => revealSensitiveData(selectedCard)}>
-                    {pinHash ? "🔐 הצג (PIN)" : "👁 הצג תמונה"}
+                    👁 הצג תמונה
                   </button>
                 </div>
               )}
@@ -1118,7 +1306,7 @@ export default function App() {
                 <span style={{ color: "#10b981", fontSize: 11, fontWeight: 600 }}>🔓 גלוי — נסתר בקרוב</span>
               ) : (
                 <button style={{ background: "linear-gradient(135deg, #6c63ff, #a855f7)", border: "none", color: "#fff", padding: "6px 14px", borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }} onClick={() => revealSensitiveData(selectedCard)}>
-                  {pinHash ? "🔐 הצג (PIN)" : "👁 הצג"}
+                  👁 הצג
                 </button>
               )}
             </div>
@@ -1177,22 +1365,6 @@ export default function App() {
             ))}
           </div>
         </div>
-
-        {pinRevealModal && (
-          <Modal title="אמת זהות" onClose={() => setPinRevealModal(null)}>
-            <PinPad
-              title="הכנס PIN לגילוי"
-              subtitle="הפרטים יוצגו ל-30 שניות"
-              mode="verify"
-              storedHash={pinHash}
-              onSuccess={() => {
-                setPinRevealModal(null);
-                doReveal(selectedCard.id, selectedCard);
-              }}
-              onCancel={() => setPinRevealModal(null)}
-            />
-          </Modal>
-        )}
 
         {confirmDeleteId && (
           <Modal title="מחק כרטיס?" onClose={() => setConfirmDeleteId(null)}>
