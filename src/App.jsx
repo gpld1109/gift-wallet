@@ -10,7 +10,7 @@ import PrivacyPolicy from "./legal/PrivacyPolicy";
 import TermsOfService from "./legal/TermsOfService";
 import {
   PROVIDERS, CATEGORIES, CATEGORY_ICONS, SORT_OPTIONS,
-  fmt, fmtDate, daysLeft, isExpired, isExpiringSoon, provider, S,
+  fmt, fmtDate, daysLeft, isExpired, isExpiringSoon, provider, luhnValid, S,
 } from "./shared";
 import { t, ti, setLang, getLang, LANGS } from "./i18n";
 
@@ -1183,6 +1183,9 @@ export default function App() {
             <div style={S.formGroup}>
               <label style={S.label}>{t("קוד הכרטיס ")}{form.provider === "credit" ? t("/ מספר זיכוי (אופציונלי)") : ""}</label>
               <input style={S.input} placeholder={form.provider === "credit" ? t("מספר זיכוי (אופציונלי)") : t("לדוגמה: GIFT-1234-ABCD")} value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} dir="ltr" />
+              {form.code && !luhnValid(form.code) && (
+                <div role="alert" style={{ color: "#f59e0b", fontSize: 12, marginTop: 6, lineHeight: 1.5 }}>{t("⚠️ מספר הכרטיס לא עובר בדיקת תקינות — ודא שלא נפלה טעות בהקלדה (אפשר לשמור בכל זאת)")}</div>
+              )}
             </div>
 
             {form.provider === "credit" && (

@@ -169,4 +169,14 @@ await test("backup: encrypts, round-trips, wrong password fails, never plaintext
   await assert.rejects(() => decryptBackup(enc, "wrong-pass"));
 });
 
+await test("luhnValid flags mistyped card numbers, ignores non-card codes", async () => {
+  const { luhnValid } = await import("../src/shared.js");
+  assert.equal(luhnValid("4111111111111111"), true);   // valid checksum
+  assert.equal(luhnValid("4111 1111 1111 1111"), true); // spaces ignored
+  assert.equal(luhnValid("4111111111111112"), false);   // single-digit typo
+  assert.equal(luhnValid("GIFT-1234-ABCD"), true);      // not card-shaped → not flagged
+  assert.equal(luhnValid("123"), true);                 // too short → not flagged
+  assert.equal(luhnValid(""), true);
+});
+
 console.log(`\n${passed} passed`);

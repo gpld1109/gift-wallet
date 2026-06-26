@@ -28,6 +28,24 @@ export const isExpired = (e) => e && new Date(e) < new Date();
 export const isExpiringSoon = (e) => { const d = daysLeft(e); return d !== null && d > 0 && d <= 30; };
 export const provider = (id) => PROVIDERS.find((p) => p.id === id) || PROVIDERS[PROVIDERS.length - 1];
 
+// Luhn checksum — used as a soft typo check for card-number style codes
+// (e.g. Max / Dream Card VIP). Returns true (= "no problem") for anything that
+// isn't a 12–19 digit number, so non-card vouchers are never flagged. A false
+// result means the digits look like a card number but fail the checksum, i.e.
+// the number was probably mistyped. This never proves a card is real/active.
+export function luhnValid(input) {
+  const digits = String(input || "").replace(/\D/g, "");
+  if (digits.length < 12 || digits.length > 19) return true; // not card-shaped → don't flag
+  let sum = 0, alt = false;
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let d = digits.charCodeAt(i) - 48;
+    if (alt) { d *= 2; if (d > 9) d -= 9; }
+    sum += d;
+    alt = !alt;
+  }
+  return sum % 10 === 0;
+}
+
 export const S = {
   page: { minHeight: "100vh", background: "#0a0f1e", color: "#e8eaf6", fontFamily: "'Segoe UI', 'Arial', sans-serif" },
   container: { maxWidth: 520, margin: "0 auto", padding: "20px 16px 110px" },

@@ -232,6 +232,7 @@ const EN = {
   "✓ שמור שינויים": "✓ Save changes",
   "+ הוסף": "+ Add",
   "ללא קוד": "No code",
+  "⚠️ מספר הכרטיס לא עובר בדיקת תקינות — ודא שלא נפלה טעות בהקלדה (אפשר לשמור בכל זאת)": "⚠️ This card number fails the checksum — double-check for a typo (you can still save)",
   "מספר זיכוי (אופציונלי)": "Credit number (optional)",
   "לדוגמה: GIFT-1234-ABCD": "e.g. GIFT-1234-ABCD",
   "לדוגמה: זארה, H&M, קסטרו...": "e.g. Zara, H&M, Castro...",
