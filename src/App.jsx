@@ -317,8 +317,10 @@ function AuthScreen() {
       options: { shouldCreateUser: true }
     });
     setLoading(false);
-    if (error) setError(error.message);
-    else setStep("code");
+    if (error) {
+      console.error("signInWithOtp error:", error);
+      setError(error.message || error.error_description || t("שגיאה בשליחת הקוד, נסה שוב מאוחר יותר"));
+    } else setStep("code");
   };
 
   const verifyOtp = async () => {

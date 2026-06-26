@@ -64,6 +64,7 @@ const EN = {
   "הכנס קוד": "Enter code",
   "קוד חייב להיות 6 ספרות": "Code must be 6 digits",
   "קוד שגוי או פג תוקף, נסה שוב": "Wrong or expired code, try again",
+  "שגיאה בשליחת הקוד, נסה שוב מאוחר יותר": "Couldn't send the code, please try again later",
   "שלחנו קוד 6 ספרות ל-": "We sent a 6-digit code to ",
   "קוד אימות": "Verification code",
   "מאמת...": "Verifying...",
