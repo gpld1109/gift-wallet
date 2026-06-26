@@ -79,6 +79,8 @@ const EN = {
   " ולא נשלחת לשרת — כך שגם אם מישהו יפרוץ למסד הנתונים, הוא לא יוכל לקרוא את הקודים בלעדיה.": " and never sent to the server — so even if someone breaches the database, they can't read your codes without it.",
   "סיסמה (לפחות 8 תווים)": "Password (at least 8 characters)",
   "אימות סיסמה": "Confirm password",
+  "הצג סיסמה": "Show password",
+  "הסתר סיסמה": "Hide password",
   "הסיסמה חייבת להיות לפחות 8 תווים": "Password must be at least 8 characters",
   "הסיסמאות לא תואמות": "Passwords don't match",
   "מצפין...": "Encrypting...",

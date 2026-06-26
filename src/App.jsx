@@ -48,6 +48,21 @@ const vaultInput = { width: "100%", background: "#0a0f1e", border: "1px solid #1
 const vaultLabel = { display: "block", color: "#9ca3af", fontSize: 12, fontWeight: 700, marginBottom: 7 };
 const vaultBtn = (disabled) => ({ width: "100%", background: disabled ? "#374151" : "linear-gradient(135deg, #6c63ff, #a855f7)", border: "none", color: "#fff", padding: 14, borderRadius: 14, fontSize: 15, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit" });
 
+// Password field with a show/hide (eye) toggle, so the user can verify there's
+// no typo. Forwards all input props; defaults to the vault input style.
+function PasswordInput({ style, ...props }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div style={{ position: "relative", marginBottom: 12 }}>
+      <input {...props} type={show ? "text" : "password"} style={{ ...(style || vaultInput), marginBottom: 0, paddingLeft: 44 }} />
+      <button type="button" tabIndex={-1} onClick={() => setShow(s => !s)} aria-label={show ? t("הסתר סיסמה") : t("הצג סיסמה")}
+        style={{ position: "absolute", left: 6, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 18, padding: 6, color: "#8892b0", lineHeight: 1 }}>
+        {show ? "🙈" : "👁"}
+      </button>
+    </div>
+  );
+}
+
 function VaultShell({ children }) {
   return (
     <div style={{ minHeight: "100vh", background: "#0a0f1e", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "'Segoe UI', Arial, sans-serif" }}>
@@ -81,9 +96,9 @@ function VaultSetup({ onCreate, busy }) {
         {t("הסיסמה הזו מצפינה את הקודים שלך. היא ")}<strong style={{ color: "#a8b2d8" }}>{t("נשמרת רק אצלך")}</strong>{t(" ולא נשלחת לשרת — כך שגם אם מישהו יפרוץ למסד הנתונים, הוא לא יוכל לקרוא את הקודים בלעדיה.")}
       </p>
       <label htmlFor="vault-pass" style={vaultLabel}>{t("סיסמה (לפחות 8 תווים)")}</label>
-      <input id="vault-pass" type="password" autoComplete="new-password" style={vaultInput} value={pass} onChange={e => { setPass(e.target.value); setError(""); }} dir="ltr" />
+      <PasswordInput id="vault-pass" autoComplete="new-password" value={pass} onChange={e => { setPass(e.target.value); setError(""); }} dir="ltr" />
       <label htmlFor="vault-pass2" style={vaultLabel}>{t("אימות סיסמה")}</label>
-      <input id="vault-pass2" type="password" autoComplete="new-password" style={vaultInput} value={confirm} onChange={e => { setConfirm(e.target.value); setError(""); }} onKeyDown={e => e.key === "Enter" && submit()} dir="ltr" />
+      <PasswordInput id="vault-pass2" autoComplete="new-password" value={confirm} onChange={e => { setConfirm(e.target.value); setError(""); }} onKeyDown={e => e.key === "Enter" && submit()} dir="ltr" />
       {error && <div role="alert" style={{ color: "#ef4444", fontSize: 13, marginBottom: 12 }}>{error}</div>}
       <button style={vaultBtn(busy)} onClick={submit} disabled={busy}>{busy ? t("מצפין...") : t("הגדר והמשך →")}</button>
       <p style={{ color: "#4b5563", fontSize: 11, textAlign: "center", marginTop: 14, marginBottom: 0, lineHeight: 1.6 }}>
@@ -149,9 +164,9 @@ function VaultUnlock({ email, onUnlock, onRecover, onSignOut }) {
         <label htmlFor="rec-code" style={vaultLabel}>{t("קוד שחזור")}</label>
         <input id="rec-code" style={{ ...vaultInput, fontFamily: "monospace", letterSpacing: 1 }} value={recovery} onChange={e => { setRecovery(e.target.value); setError(""); }} dir="ltr" placeholder="XXXXX-XXXXX-XXXXX-XXXXX" />
         <label htmlFor="rec-new" style={vaultLabel}>{t("סיסמה חדשה")}</label>
-        <input id="rec-new" type="password" autoComplete="new-password" style={vaultInput} value={newPass} onChange={e => { setNewPass(e.target.value); setError(""); }} dir="ltr" />
+        <PasswordInput id="rec-new" autoComplete="new-password" value={newPass} onChange={e => { setNewPass(e.target.value); setError(""); }} dir="ltr" />
         <label htmlFor="rec-new2" style={vaultLabel}>{t("אימות סיסמה חדשה")}</label>
-        <input id="rec-new2" type="password" autoComplete="new-password" style={vaultInput} value={newPass2} onChange={e => { setNewPass2(e.target.value); setError(""); }} onKeyDown={e => e.key === "Enter" && doRecover()} dir="ltr" />
+        <PasswordInput id="rec-new2" autoComplete="new-password" value={newPass2} onChange={e => { setNewPass2(e.target.value); setError(""); }} onKeyDown={e => e.key === "Enter" && doRecover()} dir="ltr" />
         {error && <div role="alert" style={{ color: "#ef4444", fontSize: 13, marginBottom: 12 }}>{error}</div>}
         <button style={vaultBtn(busy)} onClick={doRecover} disabled={busy}>{busy ? t("משחזר...") : t("שחזר והגדר סיסמה →")}</button>
         <button style={{ width: "100%", background: "none", border: "none", color: "#6b7280", fontSize: 13, cursor: "pointer", fontFamily: "inherit", marginTop: 14 }} onClick={() => { setMode("pass"); setError(""); }}>{t("← חזרה")}</button>
@@ -164,7 +179,7 @@ function VaultUnlock({ email, onUnlock, onRecover, onSignOut }) {
       <h2 style={{ color: "#e8eaf6", fontSize: 18, fontWeight: 700, marginTop: 0, marginBottom: 6 }}>{t("פתיחת הארנק")}</h2>
       <p style={{ color: "#8892b0", fontSize: 13, marginTop: 0, marginBottom: 18 }}>{email}</p>
       <label htmlFor="unlock-pass" style={vaultLabel}>{t("סיסמת הצפנה")}</label>
-      <input id="unlock-pass" type="password" autoComplete="current-password" autoFocus style={vaultInput} value={pass} onChange={e => { setPass(e.target.value); setError(""); }} onKeyDown={e => e.key === "Enter" && doUnlock()} dir="ltr" />
+      <PasswordInput id="unlock-pass" autoComplete="current-password" autoFocus value={pass} onChange={e => { setPass(e.target.value); setError(""); }} onKeyDown={e => e.key === "Enter" && doUnlock()} dir="ltr" />
       {error && <div role="alert" style={{ color: "#ef4444", fontSize: 13, marginBottom: 12 }}>{error}</div>}
       <button style={vaultBtn(busy)} onClick={doUnlock} disabled={busy}>{busy ? t("פותח...") : t("🔓 פתח")}</button>
       <button style={{ width: "100%", background: "none", border: "none", color: "#6c63ff", fontSize: 13, cursor: "pointer", fontFamily: "inherit", marginTop: 14, fontWeight: 600 }} onClick={() => { setMode("recovery"); setError(""); }}>{t("שכחת סיסמה? שחזור עם קוד")}</button>
@@ -185,9 +200,9 @@ function ChangePassphraseForm({ onSave }) {
   return (
     <>
       <label htmlFor="ch-pass" style={vaultLabel}>{t("סיסמה חדשה (לפחות 8 תווים)")}</label>
-      <input id="ch-pass" type="password" autoComplete="new-password" style={vaultInput} value={pass} onChange={e => { setPass(e.target.value); setError(""); }} dir="ltr" />
+      <PasswordInput id="ch-pass" autoComplete="new-password" value={pass} onChange={e => { setPass(e.target.value); setError(""); }} dir="ltr" />
       <label htmlFor="ch-pass2" style={vaultLabel}>{t("אימות סיסמה")}</label>
-      <input id="ch-pass2" type="password" autoComplete="new-password" style={vaultInput} value={confirm} onChange={e => { setConfirm(e.target.value); setError(""); }} onKeyDown={e => e.key === "Enter" && submit()} dir="ltr" />
+      <PasswordInput id="ch-pass2" autoComplete="new-password" value={confirm} onChange={e => { setConfirm(e.target.value); setError(""); }} onKeyDown={e => e.key === "Enter" && submit()} dir="ltr" />
       {error && <div role="alert" style={{ color: "#ef4444", fontSize: 13, marginBottom: 12 }}>{error}</div>}
       <button style={vaultBtn(false)} onClick={submit}>{t("שמור סיסמה חדשה")}</button>
     </>
@@ -285,11 +300,11 @@ function BackupPasswordForm({ mode, onSubmit }) {
         </p>
       )}
       <label htmlFor="bk-pass" style={vaultLabel}>{mode === "export" ? t("סיסמת גיבוי (6+ תווים)") : t("סיסמת הגיבוי")}</label>
-      <input id="bk-pass" type="password" autoComplete={mode === "export" ? "new-password" : "current-password"} style={vaultInput} value={pass} onChange={e => { setPass(e.target.value); setError(""); }} onKeyDown={e => { if (e.key === "Enter" && mode === "import") submit(); }} dir="ltr" />
+      <PasswordInput id="bk-pass" autoComplete={mode === "export" ? "new-password" : "current-password"} value={pass} onChange={e => { setPass(e.target.value); setError(""); }} onKeyDown={e => { if (e.key === "Enter" && mode === "import") submit(); }} dir="ltr" />
       {mode === "export" && (
         <>
           <label htmlFor="bk-pass2" style={vaultLabel}>{t("אימות סיסמה")}</label>
-          <input id="bk-pass2" type="password" autoComplete="new-password" style={vaultInput} value={confirm} onChange={e => { setConfirm(e.target.value); setError(""); }} onKeyDown={e => e.key === "Enter" && submit()} dir="ltr" />
+          <PasswordInput id="bk-pass2" autoComplete="new-password" value={confirm} onChange={e => { setConfirm(e.target.value); setError(""); }} onKeyDown={e => e.key === "Enter" && submit()} dir="ltr" />
         </>
       )}
       {error && <div role="alert" style={{ color: "#ef4444", fontSize: 13, marginBottom: 12 }}>{error}</div>}
