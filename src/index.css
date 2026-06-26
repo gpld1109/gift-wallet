@@ -14,13 +14,13 @@ html, body {
   /* Keep everything within the viewport: prevent horizontal expansion and let
      long unbreakable strings (card codes, notes, emails) wrap instead of widen. */
   max-width: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
   overflow-wrap: break-word;
 }
 
 #root {
   max-width: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 /* iOS safe area support */

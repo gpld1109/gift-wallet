@@ -30,7 +30,7 @@ export const provider = (id) => PROVIDERS.find((p) => p.id === id) || PROVIDERS[
 
 export const S = {
   page: { minHeight: "100vh", background: "#0a0f1e", color: "#e8eaf6", fontFamily: "'Segoe UI', 'Arial', sans-serif" },
-  container: { maxWidth: 520, margin: "0 auto", padding: "20px 16px 80px" },
+  container: { maxWidth: 520, margin: "0 auto", padding: "20px 16px 110px" },
   title: { fontSize: 24, fontWeight: 800, color: "#f3f4f6", margin: 0 },
   backBtn: { background: "none", border: "none", color: "#6c63ff", fontSize: 14, cursor: "pointer", padding: "6px 0", fontFamily: "inherit", fontWeight: 600 },
   addBtn: { background: "linear-gradient(135deg, #6c63ff, #a855f7)", border: "none", color: "#fff", padding: "9px 18px", borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" },
