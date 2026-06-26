@@ -29,7 +29,7 @@ export const isExpiringSoon = (e) => { const d = daysLeft(e); return d !== null 
 export const provider = (id) => PROVIDERS.find((p) => p.id === id) || PROVIDERS[PROVIDERS.length - 1];
 
 export const S = {
-  page: { minHeight: "100vh", background: "#0a0f1e", color: "#e8eaf6", fontFamily: "'Segoe UI', 'Arial', sans-serif", direction: "rtl" },
+  page: { minHeight: "100vh", background: "#0a0f1e", color: "#e8eaf6", fontFamily: "'Segoe UI', 'Arial', sans-serif" },
   container: { maxWidth: 520, margin: "0 auto", padding: "20px 16px 80px" },
   title: { fontSize: 24, fontWeight: 800, color: "#f3f4f6", margin: 0 },
   backBtn: { background: "none", border: "none", color: "#6c63ff", fontSize: 14, cursor: "pointer", padding: "6px 0", fontFamily: "inherit", fontWeight: 600 },

@@ -12,6 +12,7 @@ import {
   PROVIDERS, CATEGORIES, CATEGORY_ICONS, SORT_OPTIONS,
   fmt, fmtDate, daysLeft, isExpired, isExpiringSoon, provider, S,
 } from "./shared";
+import { t, ti, setLang, getLang, LANGS } from "./i18n";
 
 // Stats screen is code-split: recharts (the heaviest dependency) is fetched only
 // when the user opens Stats, keeping the initial load light.
@@ -49,11 +50,11 @@ const vaultBtn = (disabled) => ({ width: "100%", background: disabled ? "#374151
 
 function VaultShell({ children }) {
   return (
-    <div style={{ minHeight: "100vh", background: "#0a0f1e", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "'Segoe UI', Arial, sans-serif", direction: "rtl" }}>
+    <div style={{ minHeight: "100vh", background: "#0a0f1e", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "'Segoe UI', Arial, sans-serif" }}>
       <div style={{ width: "100%", maxWidth: 400 }}>
         <div style={{ textAlign: "center", marginBottom: 24 }}>
           <div style={{ fontSize: 56, marginBottom: 12 }}>🔐</div>
-          <h1 style={{ fontSize: 24, fontWeight: 800, color: "#f3f4f6", margin: 0 }}>ארנק הטבות</h1>
+          <h1 style={{ fontSize: 24, fontWeight: 800, color: "#f3f4f6", margin: 0 }}>{t("ארנק הטבות")}</h1>
         </div>
         <div style={{ background: "#111827", borderRadius: 20, padding: 28, border: "1px solid #1f2937" }}>
           {children}
@@ -68,25 +69,25 @@ function VaultSetup({ onCreate, busy }) {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const submit = () => {
-    if (pass.length < 8) return setError("הסיסמה חייבת להיות לפחות 8 תווים");
-    if (pass !== confirm) return setError("הסיסמאות לא תואמות");
+    if (pass.length < 8) return setError(t("הסיסמה חייבת להיות לפחות 8 תווים"));
+    if (pass !== confirm) return setError(t("הסיסמאות לא תואמות"));
     setError("");
     onCreate(pass);
   };
   return (
     <>
-      <h2 style={{ color: "#e8eaf6", fontSize: 18, fontWeight: 700, marginTop: 0, marginBottom: 6 }}>הגדרת סיסמת הצפנה</h2>
+      <h2 style={{ color: "#e8eaf6", fontSize: 18, fontWeight: 700, marginTop: 0, marginBottom: 6 }}>{t("הגדרת סיסמת הצפנה")}</h2>
       <p style={{ color: "#8892b0", fontSize: 13, lineHeight: 1.6, marginTop: 0, marginBottom: 20 }}>
-        הסיסמה הזו מצפינה את הקודים שלך. היא <strong style={{ color: "#a8b2d8" }}>נשמרת רק אצלך</strong> ולא נשלחת לשרת — כך שגם אם מישהו יפרוץ למסד הנתונים, הוא לא יוכל לקרוא את הקודים בלעדיה.
+        {t("הסיסמה הזו מצפינה את הקודים שלך. היא ")}<strong style={{ color: "#a8b2d8" }}>{t("נשמרת רק אצלך")}</strong>{t(" ולא נשלחת לשרת — כך שגם אם מישהו יפרוץ למסד הנתונים, הוא לא יוכל לקרוא את הקודים בלעדיה.")}
       </p>
-      <label htmlFor="vault-pass" style={vaultLabel}>סיסמה (לפחות 8 תווים)</label>
+      <label htmlFor="vault-pass" style={vaultLabel}>{t("סיסמה (לפחות 8 תווים)")}</label>
       <input id="vault-pass" type="password" autoComplete="new-password" style={vaultInput} value={pass} onChange={e => { setPass(e.target.value); setError(""); }} dir="ltr" />
-      <label htmlFor="vault-pass2" style={vaultLabel}>אימות סיסמה</label>
+      <label htmlFor="vault-pass2" style={vaultLabel}>{t("אימות סיסמה")}</label>
       <input id="vault-pass2" type="password" autoComplete="new-password" style={vaultInput} value={confirm} onChange={e => { setConfirm(e.target.value); setError(""); }} onKeyDown={e => e.key === "Enter" && submit()} dir="ltr" />
       {error && <div role="alert" style={{ color: "#ef4444", fontSize: 13, marginBottom: 12 }}>{error}</div>}
-      <button style={vaultBtn(busy)} onClick={submit} disabled={busy}>{busy ? "מצפין..." : "הגדר והמשך →"}</button>
+      <button style={vaultBtn(busy)} onClick={submit} disabled={busy}>{busy ? t("מצפין...") : t("הגדר והמשך →")}</button>
       <p style={{ color: "#4b5563", fontSize: 11, textAlign: "center", marginTop: 14, marginBottom: 0, lineHeight: 1.6 }}>
-        ⚠️ אם תשכח את הסיסמה תצטרך את קוד השחזור שיוצג בשלב הבא. בלי אחד מהם לא ניתן לשחזר את הקודים.
+        {t("⚠️ אם תשכח את הסיסמה תצטרך את קוד השחזור שיוצג בשלב הבא. בלי אחד מהם לא ניתן לשחזר את הקודים.")}
       </p>
     </>
   );
@@ -98,19 +99,19 @@ function RecoveryScreen({ code, onDone, inModal }) {
   const copy = () => { try { navigator.clipboard?.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch {} };
   return (
     <>
-      <h2 style={{ color: "#e8eaf6", fontSize: 18, fontWeight: 700, marginTop: 0, marginBottom: 6 }}>קוד השחזור שלך</h2>
+      <h2 style={{ color: "#e8eaf6", fontSize: 18, fontWeight: 700, marginTop: 0, marginBottom: 6 }}>{t("קוד השחזור שלך")}</h2>
       <p style={{ color: "#8892b0", fontSize: 13, lineHeight: 1.6, marginTop: 0, marginBottom: 18 }}>
-        זה הגיבוי היחיד אם תשכח את הסיסמה. <strong style={{ color: "#fbbf24" }}>שמור אותו עכשיו במקום בטוח</strong> (צילום מסך / מנהל סיסמאות). הוא לא יוצג שוב.
+        {t("זה הגיבוי היחיד אם תשכח את הסיסמה. ")}<strong style={{ color: "#fbbf24" }}>{t("שמור אותו עכשיו במקום בטוח")}</strong>{t(" (צילום מסך / מנהל סיסמאות). הוא לא יוצג שוב.")}
       </p>
       <div style={{ background: "#0a0f1e", border: "1px dashed #2d3250", borderRadius: 12, padding: "18px 14px", textAlign: "center", marginBottom: 12 }}>
         <div style={{ fontFamily: "monospace", fontSize: 20, fontWeight: 700, color: "#a5f3fc", letterSpacing: 2, direction: "ltr", userSelect: "all" }}>{code}</div>
       </div>
-      <button style={{ ...vaultBtn(false), background: "#1e2235", marginBottom: 16 }} onClick={copy}>{copied ? "✓ הועתק" : "📋 העתק קוד"}</button>
+      <button style={{ ...vaultBtn(false), background: "#1e2235", marginBottom: 16 }} onClick={copy}>{copied ? t("✓ הועתק") : t("📋 העתק קוד")}</button>
       <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", color: "#ccd6f6", fontSize: 14, marginBottom: 16 }}>
         <input type="checkbox" checked={saved} onChange={e => setSaved(e.target.checked)} style={{ accentColor: "#6c63ff", width: 18, height: 18 }} />
-        שמרתי את קוד השחזור במקום בטוח
+        {t("שמרתי את קוד השחזור במקום בטוח")}
       </label>
-      <button style={vaultBtn(!saved)} onClick={() => saved && onDone()} disabled={!saved}>{inModal ? "סגור" : "סיימתי, כניסה לארנק →"}</button>
+      <button style={vaultBtn(!saved)} onClick={() => saved && onDone()} disabled={!saved}>{inModal ? t("סגור") : t("סיימתי, כניסה לארנק →")}</button>
     </>
   );
 }
@@ -129,45 +130,45 @@ function VaultUnlock({ email, onUnlock, onRecover, onSignOut }) {
     setBusy(true); setError("");
     const ok = await onUnlock(pass);
     setBusy(false);
-    if (!ok) { setError("סיסמה שגויה"); setPass(""); }
+    if (!ok) { setError(t("סיסמה שגויה")); setPass(""); }
   };
   const doRecover = async () => {
-    if (newPass.length < 8) return setError("הסיסמה החדשה חייבת להיות לפחות 8 תווים");
-    if (newPass !== newPass2) return setError("הסיסמאות החדשות לא תואמות");
+    if (newPass.length < 8) return setError(t("הסיסמה החדשה חייבת להיות לפחות 8 תווים"));
+    if (newPass !== newPass2) return setError(t("הסיסמאות החדשות לא תואמות"));
     setBusy(true); setError("");
     const ok = await onRecover(recovery, newPass);
     setBusy(false);
-    if (!ok) setError("קוד שחזור שגוי");
+    if (!ok) setError(t("קוד שחזור שגוי"));
   };
 
   if (mode === "recovery") {
     return (
       <>
-        <h2 style={{ color: "#e8eaf6", fontSize: 18, fontWeight: 700, marginTop: 0, marginBottom: 6 }}>שחזור באמצעות קוד</h2>
-        <p style={{ color: "#8892b0", fontSize: 13, lineHeight: 1.6, marginTop: 0, marginBottom: 18 }}>הכנס את קוד השחזור שקיבלת, ובחר סיסמה חדשה.</p>
-        <label htmlFor="rec-code" style={vaultLabel}>קוד שחזור</label>
+        <h2 style={{ color: "#e8eaf6", fontSize: 18, fontWeight: 700, marginTop: 0, marginBottom: 6 }}>{t("שחזור באמצעות קוד")}</h2>
+        <p style={{ color: "#8892b0", fontSize: 13, lineHeight: 1.6, marginTop: 0, marginBottom: 18 }}>{t("הכנס את קוד השחזור שקיבלת, ובחר סיסמה חדשה.")}</p>
+        <label htmlFor="rec-code" style={vaultLabel}>{t("קוד שחזור")}</label>
         <input id="rec-code" style={{ ...vaultInput, fontFamily: "monospace", letterSpacing: 1 }} value={recovery} onChange={e => { setRecovery(e.target.value); setError(""); }} dir="ltr" placeholder="XXXXX-XXXXX-XXXXX-XXXXX" />
-        <label htmlFor="rec-new" style={vaultLabel}>סיסמה חדשה</label>
+        <label htmlFor="rec-new" style={vaultLabel}>{t("סיסמה חדשה")}</label>
         <input id="rec-new" type="password" autoComplete="new-password" style={vaultInput} value={newPass} onChange={e => { setNewPass(e.target.value); setError(""); }} dir="ltr" />
-        <label htmlFor="rec-new2" style={vaultLabel}>אימות סיסמה חדשה</label>
+        <label htmlFor="rec-new2" style={vaultLabel}>{t("אימות סיסמה חדשה")}</label>
         <input id="rec-new2" type="password" autoComplete="new-password" style={vaultInput} value={newPass2} onChange={e => { setNewPass2(e.target.value); setError(""); }} onKeyDown={e => e.key === "Enter" && doRecover()} dir="ltr" />
         {error && <div role="alert" style={{ color: "#ef4444", fontSize: 13, marginBottom: 12 }}>{error}</div>}
-        <button style={vaultBtn(busy)} onClick={doRecover} disabled={busy}>{busy ? "משחזר..." : "שחזר והגדר סיסמה →"}</button>
-        <button style={{ width: "100%", background: "none", border: "none", color: "#6b7280", fontSize: 13, cursor: "pointer", fontFamily: "inherit", marginTop: 14 }} onClick={() => { setMode("pass"); setError(""); }}>← חזרה</button>
+        <button style={vaultBtn(busy)} onClick={doRecover} disabled={busy}>{busy ? t("משחזר...") : t("שחזר והגדר סיסמה →")}</button>
+        <button style={{ width: "100%", background: "none", border: "none", color: "#6b7280", fontSize: 13, cursor: "pointer", fontFamily: "inherit", marginTop: 14 }} onClick={() => { setMode("pass"); setError(""); }}>{t("← חזרה")}</button>
       </>
     );
   }
 
   return (
     <>
-      <h2 style={{ color: "#e8eaf6", fontSize: 18, fontWeight: 700, marginTop: 0, marginBottom: 6 }}>פתיחת הארנק</h2>
+      <h2 style={{ color: "#e8eaf6", fontSize: 18, fontWeight: 700, marginTop: 0, marginBottom: 6 }}>{t("פתיחת הארנק")}</h2>
       <p style={{ color: "#8892b0", fontSize: 13, marginTop: 0, marginBottom: 18 }}>{email}</p>
-      <label htmlFor="unlock-pass" style={vaultLabel}>סיסמת הצפנה</label>
+      <label htmlFor="unlock-pass" style={vaultLabel}>{t("סיסמת הצפנה")}</label>
       <input id="unlock-pass" type="password" autoComplete="current-password" autoFocus style={vaultInput} value={pass} onChange={e => { setPass(e.target.value); setError(""); }} onKeyDown={e => e.key === "Enter" && doUnlock()} dir="ltr" />
       {error && <div role="alert" style={{ color: "#ef4444", fontSize: 13, marginBottom: 12 }}>{error}</div>}
-      <button style={vaultBtn(busy)} onClick={doUnlock} disabled={busy}>{busy ? "פותח..." : "🔓 פתח"}</button>
-      <button style={{ width: "100%", background: "none", border: "none", color: "#6c63ff", fontSize: 13, cursor: "pointer", fontFamily: "inherit", marginTop: 14, fontWeight: 600 }} onClick={() => { setMode("recovery"); setError(""); }}>שכחת סיסמה? שחזור עם קוד</button>
-      <button style={{ width: "100%", background: "none", border: "none", color: "#4b5563", fontSize: 12, cursor: "pointer", fontFamily: "inherit", marginTop: 16 }} onClick={onSignOut}>🚪 התנתק</button>
+      <button style={vaultBtn(busy)} onClick={doUnlock} disabled={busy}>{busy ? t("פותח...") : t("🔓 פתח")}</button>
+      <button style={{ width: "100%", background: "none", border: "none", color: "#6c63ff", fontSize: 13, cursor: "pointer", fontFamily: "inherit", marginTop: 14, fontWeight: 600 }} onClick={() => { setMode("recovery"); setError(""); }}>{t("שכחת סיסמה? שחזור עם קוד")}</button>
+      <button style={{ width: "100%", background: "none", border: "none", color: "#4b5563", fontSize: 12, cursor: "pointer", fontFamily: "inherit", marginTop: 16 }} onClick={onSignOut}>{t("🚪 התנתק")}</button>
     </>
   );
 }
@@ -177,18 +178,18 @@ function ChangePassphraseForm({ onSave }) {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const submit = () => {
-    if (pass.length < 8) return setError("הסיסמה חייבת להיות לפחות 8 תווים");
-    if (pass !== confirm) return setError("הסיסמאות לא תואמות");
+    if (pass.length < 8) return setError(t("הסיסמה חייבת להיות לפחות 8 תווים"));
+    if (pass !== confirm) return setError(t("הסיסמאות לא תואמות"));
     onSave(pass);
   };
   return (
     <>
-      <label htmlFor="ch-pass" style={vaultLabel}>סיסמה חדשה (לפחות 8 תווים)</label>
+      <label htmlFor="ch-pass" style={vaultLabel}>{t("סיסמה חדשה (לפחות 8 תווים)")}</label>
       <input id="ch-pass" type="password" autoComplete="new-password" style={vaultInput} value={pass} onChange={e => { setPass(e.target.value); setError(""); }} dir="ltr" />
-      <label htmlFor="ch-pass2" style={vaultLabel}>אימות סיסמה</label>
+      <label htmlFor="ch-pass2" style={vaultLabel}>{t("אימות סיסמה")}</label>
       <input id="ch-pass2" type="password" autoComplete="new-password" style={vaultInput} value={confirm} onChange={e => { setConfirm(e.target.value); setError(""); }} onKeyDown={e => e.key === "Enter" && submit()} dir="ltr" />
       {error && <div role="alert" style={{ color: "#ef4444", fontSize: 13, marginBottom: 12 }}>{error}</div>}
-      <button style={vaultBtn(false)} onClick={submit}>שמור סיסמה חדשה</button>
+      <button style={vaultBtn(false)} onClick={submit}>{t("שמור סיסמה חדשה")}</button>
     </>
   );
 }
@@ -212,15 +213,15 @@ function RevealPinPad({ mode = "verify", length = 6, title, subtitle, onVerify, 
       if (!ok) {
         const f = fails + 1;
         setDigits("");
-        if (f >= 5) { setLockUntil(Date.now() + 30000); setFails(0); setError("יותר מדי ניסיונות — המתן 30 שניות"); }
-        else { setFails(f); setError("קוד שגוי"); }
+        if (f >= 5) { setLockUntil(Date.now() + 30000); setFails(0); setError(t("יותר מדי ניסיונות — המתן 30 שניות")); }
+        else { setFails(f); setError(t("קוד שגוי")); }
       }
     } else if (confirm === null) {
       setConfirm(pin); setDigits(""); setError("");
     } else if (confirm === pin) {
       onSet(pin);
     } else {
-      setConfirm(null); setDigits(""); setError("הקודים לא תואמים");
+      setConfirm(null); setDigits(""); setError(t("הקודים לא תואמים"));
     }
   };
 
@@ -233,13 +234,13 @@ function RevealPinPad({ mode = "verify", length = 6, title, subtitle, onVerify, 
   };
 
   const sub = mode === "set"
-    ? (confirm === null ? `בחר קוד (${length} ספרות)` : "אמת את הקוד שוב")
+    ? (confirm === null ? ti("בחר קוד ({n} ספרות)", { n: length }) : t("אמת את הקוד שוב"))
     : (subtitle || "");
 
   return (
     <div style={{ textAlign: "center", padding: "6px 0" }}>
       <div style={{ fontSize: 38, marginBottom: 8 }}>🔢</div>
-      <div style={{ fontSize: 17, fontWeight: 700, color: "#e8eaf6", marginBottom: 4 }}>{title || "הכנס קוד"}</div>
+      <div style={{ fontSize: 17, fontWeight: 700, color: "#e8eaf6", marginBottom: 4 }}>{title || t("הכנס קוד")}</div>
       {sub && <div style={{ color: "#8892b0", fontSize: 13, marginBottom: 20 }}>{sub}</div>}
       <div style={{ display: "flex", gap: 12, justifyContent: "center", marginBottom: 22 }}>
         {Array.from({ length }).map((_, i) => (
@@ -256,7 +257,7 @@ function RevealPinPad({ mode = "verify", length = 6, title, subtitle, onVerify, 
           </button>
         ))}
       </div>
-      {onCancel && <button style={{ marginTop: 18, background: "none", border: "none", color: "#8892b0", fontSize: 14, cursor: "pointer", fontFamily: "inherit" }} onClick={onCancel}>ביטול</button>}
+      {onCancel && <button style={{ marginTop: 18, background: "none", border: "none", color: "#8892b0", fontSize: 14, cursor: "pointer", fontFamily: "inherit" }} onClick={onCancel}>{t("ביטול")}</button>}
     </div>
   );
 }
@@ -269,30 +270,30 @@ function BackupPasswordForm({ mode, onSubmit }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const submit = async () => {
-    if (pass.length < 6) return setError("סיסמה של לפחות 6 תווים");
-    if (mode === "export" && pass !== confirm) return setError("הסיסמאות לא תואמות");
+    if (pass.length < 6) return setError(t("סיסמה של לפחות 6 תווים"));
+    if (mode === "export" && pass !== confirm) return setError(t("הסיסמאות לא תואמות"));
     setBusy(true); setError("");
     const ok = await onSubmit(pass);
     setBusy(false);
-    if (ok === false) setError("סיסמת גיבוי שגויה");
+    if (ok === false) setError(t("סיסמת גיבוי שגויה"));
   };
   return (
     <>
       {mode === "export" && (
         <p style={{ color: "#8892b0", fontSize: 13, lineHeight: 1.6, marginTop: 0, marginBottom: 16 }}>
-          בחר סיסמה להצפנת קובץ הגיבוי. <strong style={{ color: "#a8b2d8" }}>תצטרך אותה כדי לשחזר</strong> — שמור אותה.
+          {t("בחר סיסמה להצפנת קובץ הגיבוי. ")}<strong style={{ color: "#a8b2d8" }}>{t("תצטרך אותה כדי לשחזר")}</strong>{t(" — שמור אותה.")}
         </p>
       )}
-      <label htmlFor="bk-pass" style={vaultLabel}>{mode === "export" ? "סיסמת גיבוי (6+ תווים)" : "סיסמת הגיבוי"}</label>
+      <label htmlFor="bk-pass" style={vaultLabel}>{mode === "export" ? t("סיסמת גיבוי (6+ תווים)") : t("סיסמת הגיבוי")}</label>
       <input id="bk-pass" type="password" autoComplete={mode === "export" ? "new-password" : "current-password"} style={vaultInput} value={pass} onChange={e => { setPass(e.target.value); setError(""); }} onKeyDown={e => { if (e.key === "Enter" && mode === "import") submit(); }} dir="ltr" />
       {mode === "export" && (
         <>
-          <label htmlFor="bk-pass2" style={vaultLabel}>אימות סיסמה</label>
+          <label htmlFor="bk-pass2" style={vaultLabel}>{t("אימות סיסמה")}</label>
           <input id="bk-pass2" type="password" autoComplete="new-password" style={vaultInput} value={confirm} onChange={e => { setConfirm(e.target.value); setError(""); }} onKeyDown={e => e.key === "Enter" && submit()} dir="ltr" />
         </>
       )}
       {error && <div role="alert" style={{ color: "#ef4444", fontSize: 13, marginBottom: 12 }}>{error}</div>}
-      <button style={vaultBtn(busy)} onClick={submit} disabled={busy}>{busy ? "מעבד..." : (mode === "export" ? "📥 ייצא גיבוי מוצפן" : "🔓 שחזר")}</button>
+      <button style={vaultBtn(busy)} onClick={submit} disabled={busy}>{busy ? t("מעבד...") : (mode === "export" ? t("📥 ייצא גיבוי מוצפן") : t("🔓 שחזר"))}</button>
     </>
   );
 }
@@ -308,7 +309,7 @@ function AuthScreen() {
   const [legalView, setLegalView] = useState(null); // null | "privacy" | "terms"
 
   const sendOtp = async () => {
-    if (!email.trim()) return setError("נא להכניס אימייל");
+    if (!email.trim()) return setError(t("נא להכניס אימייל"));
     setLoading(true);
     setError("");
     const { error } = await supabase.auth.signInWithOtp({
@@ -321,7 +322,7 @@ function AuthScreen() {
   };
 
   const verifyOtp = async () => {
-    if (code.length !== 6) return setError("קוד חייב להיות 6 ספרות");
+    if (code.length !== 6) return setError(t("קוד חייב להיות 6 ספרות"));
     setLoading(true);
     setError("");
     const { error } = await supabase.auth.verifyOtp({
@@ -330,30 +331,30 @@ function AuthScreen() {
       type: "email"
     });
     setLoading(false);
-    if (error) setError("קוד שגוי או פג תוקף, נסה שוב");
+    if (error) setError(t("קוד שגוי או פג תוקף, נסה שוב"));
   };
 
   if (legalView === "privacy") return <PrivacyPolicy onBack={() => setLegalView(null)} />;
   if (legalView === "terms") return <TermsOfService onBack={() => setLegalView(null)} />;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0a0f1e", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "'Segoe UI', Arial, sans-serif", direction: "rtl" }}>
+    <div style={{ minHeight: "100vh", background: "#0a0f1e", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "'Segoe UI', Arial, sans-serif" }}>
       <div style={{ width: "100%", maxWidth: 380 }}>
         <div style={{ textAlign: "center", marginBottom: 40 }}>
           <div style={{ fontSize: 64, marginBottom: 16 }}>🎁</div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: "#f3f4f6", margin: 0 }}>ארנק הטבות</h1>
-          <p style={{ color: "#6b7280", marginTop: 8, fontSize: 15 }}>גיפט קארדים · קופונים · זיכויים</p>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: "#f3f4f6", margin: 0 }}>{t("ארנק הטבות")}</h1>
+          <p style={{ color: "#6b7280", marginTop: 8, fontSize: 15 }}>{t("גיפט קארדים · קופונים · זיכויים")}</p>
         </div>
 
         <div style={{ background: "#111827", borderRadius: 20, padding: 28, border: "1px solid #1f2937" }}>
           {step === "email" ? (
             <>
-              <h2 style={{ color: "#e8eaf6", fontSize: 18, fontWeight: 700, marginBottom: 6, marginTop: 0 }}>כניסה / הרשמה</h2>
-              <p style={{ color: "#6b7280", fontSize: 13, marginBottom: 20, marginTop: 0 }}>נשלח לך קוד 6 ספרות למייל</p>
-              <label htmlFor="email-input" style={{ display: "block", color: "#9ca3af", fontSize: 12, fontWeight: 700, marginBottom: 7, textTransform: "uppercase", letterSpacing: 0.5 }}>אימייל</label>
+              <h2 style={{ color: "#e8eaf6", fontSize: 18, fontWeight: 700, marginBottom: 6, marginTop: 0 }}>{t("כניסה / הרשמה")}</h2>
+              <p style={{ color: "#6b7280", fontSize: 13, marginBottom: 20, marginTop: 0 }}>{t("נשלח לך קוד 6 ספרות למייל")}</p>
+              <label htmlFor="email-input" style={{ display: "block", color: "#9ca3af", fontSize: 12, fontWeight: 700, marginBottom: 7, textTransform: "uppercase", letterSpacing: 0.5 }}>{t("אימייל")}</label>
               <input
                 id="email-input"
-                aria-label="כתובת אימייל לכניסה"
+                aria-label={t("כתובת אימייל לכניסה")}
                 style={{ width: "100%", background: "#0a0f1e", border: "1px solid #1f2937", borderRadius: 12, padding: "13px 14px", color: "#e8eaf6", fontSize: 15, fontFamily: "inherit", outline: "none", boxSizing: "border-box", marginBottom: 12 }}
                 type="email" placeholder="your@email.com" value={email}
                 onChange={e => { setEmail(e.target.value); setError(""); }}
@@ -362,22 +363,22 @@ function AuthScreen() {
               />
               {error && <div role="alert" style={{ color: "#ef4444", fontSize: 13, marginBottom: 12 }}>{error}</div>}
               <button
-                aria-label="שלח קוד אימות לאימייל"
+                aria-label={t("שלח קוד אימות לאימייל")}
                 style={{ width: "100%", background: loading ? "#374151" : "linear-gradient(135deg, #6c63ff, #a855f7)", border: "none", color: "#fff", padding: 14, borderRadius: 14, fontSize: 15, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", fontFamily: "inherit" }}
                 onClick={sendOtp} disabled={loading}
               >
-                {loading ? "שולח..." : "שלח קוד ✉️"}
+                {loading ? t("שולח...") : t("שלח קוד ✉️")}
               </button>
-              <p style={{ color: "#4b5563", fontSize: 12, textAlign: "center", marginTop: 16, marginBottom: 0 }}>קוד חד פעמי — אין צורך בסיסמה</p>
+              <p style={{ color: "#4b5563", fontSize: 12, textAlign: "center", marginTop: 16, marginBottom: 0 }}>{t("קוד חד פעמי — אין צורך בסיסמה")}</p>
               <p style={{ color: "#4b5563", fontSize: 11, textAlign: "center", marginTop: 12, marginBottom: 0, lineHeight: 1.6 }}>
-                בהרשמה אתה מאשר את <a href="#" onClick={(e) => { e.preventDefault(); setLegalView("terms"); }} style={{ color: "#6c63ff" }}>תנאי השימוש</a> ואת <a href="#" onClick={(e) => { e.preventDefault(); setLegalView("privacy"); }} style={{ color: "#6c63ff" }}>מדיניות הפרטיות</a>
+                {t("בהרשמה אתה מאשר את ")}<a href="#" onClick={(e) => { e.preventDefault(); setLegalView("terms"); }} style={{ color: "#6c63ff" }}>{t("תנאי השימוש")}</a>{t(" ואת ")}<a href="#" onClick={(e) => { e.preventDefault(); setLegalView("privacy"); }} style={{ color: "#6c63ff" }}>{t("מדיניות הפרטיות")}</a>
               </p>
             </>
           ) : (
             <>
-              <h2 style={{ color: "#e8eaf6", fontSize: 18, fontWeight: 700, marginBottom: 6, marginTop: 0 }}>הכנס קוד</h2>
-              <p style={{ color: "#6b7280", fontSize: 13, marginBottom: 20, marginTop: 0 }}>שלחנו קוד 6 ספרות ל-<strong style={{ color: "#a8b2d8" }}>{email}</strong></p>
-              <label style={{ display: "block", color: "#9ca3af", fontSize: 12, fontWeight: 700, marginBottom: 7, textTransform: "uppercase", letterSpacing: 0.5 }}>קוד אימות</label>
+              <h2 style={{ color: "#e8eaf6", fontSize: 18, fontWeight: 700, marginBottom: 6, marginTop: 0 }}>{t("הכנס קוד")}</h2>
+              <p style={{ color: "#6b7280", fontSize: 13, marginBottom: 20, marginTop: 0 }}>{t("שלחנו קוד 6 ספרות ל-")}<strong style={{ color: "#a8b2d8" }}>{email}</strong></p>
+              <label style={{ display: "block", color: "#9ca3af", fontSize: 12, fontWeight: 700, marginBottom: 7, textTransform: "uppercase", letterSpacing: 0.5 }}>{t("קוד אימות")}</label>
               <input
                 style={{ width: "100%", background: "#0a0f1e", border: "1px solid #1f2937", borderRadius: 12, padding: "16px 14px", color: "#e8eaf6", fontSize: 28, fontFamily: "monospace", outline: "none", boxSizing: "border-box", marginBottom: 12, textAlign: "center", letterSpacing: 12 }}
                 type="number" placeholder="000000" value={code}
@@ -390,15 +391,15 @@ function AuthScreen() {
                 style={{ width: "100%", background: loading ? "#374151" : "linear-gradient(135deg, #6c63ff, #a855f7)", border: "none", color: "#fff", padding: 14, borderRadius: 14, fontSize: 15, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", fontFamily: "inherit", marginBottom: 12 }}
                 onClick={verifyOtp} disabled={loading}
               >
-                {loading ? "מאמת..." : "כניסה →"}
+                {loading ? t("מאמת...") : t("כניסה →")}
               </button>
               <button
                 style={{ width: "100%", background: "none", border: "1px solid #1f2937", color: "#6b7280", padding: "11px", borderRadius: 14, cursor: "pointer", fontFamily: "inherit", fontSize: 13 }}
                 onClick={() => { setStep("email"); setCode(""); setError(""); }}
               >
-                ← חזרה לשינוי אימייל
+                {t("← חזרה לשינוי אימייל")}
               </button>
-              <p style={{ color: "#4b5563", fontSize: 11, textAlign: "center", marginTop: 12, marginBottom: 0 }}>הקוד תקף ל-10 דקות</p>
+              <p style={{ color: "#4b5563", fontSize: 11, textAlign: "center", marginTop: 12, marginBottom: 0 }}>{t("הקוד תקף ל-10 דקות")}</p>
             </>
           )}
         </div>
@@ -412,6 +413,7 @@ function AuthScreen() {
 export default function App() {
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [, setLangTick] = useState(0); // bump to re-render the whole tree on language change
   // Vault (envelope encryption): the DEK lives only in memory while the app is open.
   const [vaultState, setVaultState] = useState("loading"); // loading | setup | recovery | locked | open
   const [dek, setDek] = useState(null);
@@ -489,13 +491,15 @@ export default function App() {
   useEffect(() => {
     if (cards.length === 0) return;
     const soon = cards.filter(c => !c.fullyUsed && isExpiringSoon(c.expiry));
-    if (soon.length > 0) showToast(`⚠️ ${soon.length} כרטיס/ים פגי תוקף בקרוב!`, "warn");
+    if (soon.length > 0) showToast(ti("⚠️ {n} כרטיס/ים פגי תוקף בקרוב!", { n: soon.length }), "warn");
   }, [cards]);
 
   const showToast = useCallback((msg, type = "success") => {
-    setToast({ msg, type });
+    setToast({ msg: t(msg), type }); // translate via the i18n dictionary (falls back to Hebrew)
     setTimeout(() => setToast(null), 3500);
   }, []);
+
+  const changeLang = (lng) => { setLang(lng); setLangTick(x => x + 1); };
 
   // ─── Vault: setup / unlock / recovery / key rotation ────────────────────────
 
@@ -767,7 +771,7 @@ export default function App() {
         const compressed = canvas.toDataURL("image/jpeg", 0.7);
         const kb = Math.round(compressed.length * 0.75 / 1024);
         setForm(f => ({ ...f, image: compressed }));
-        showToast(`תמונה הוכנסה (${kb}KB) ✓`);
+        showToast(ti("תמונה הוכנסה ({kb}KB) ✓", { kb }));
       };
       img.src = ev.target.result;
     };
@@ -777,7 +781,7 @@ export default function App() {
   // ── Share card ──
   const shareCard = (card) => {
     const prov = provider(card.provider);
-    const text = `🎁 ${prov.name}\nקוד: ${card.code}\nיתרה: ${fmt(card.remainingAmount)}${card.expiry ? `\nתוקף: ${fmtDate(card.expiry)}` : ""}`;
+    const text = `🎁 ${t(prov.name)}\n${t("קוד: ")}${card.code}\n${t("יתרה: ")}${fmt(card.remainingAmount)}${card.expiry ? `\n${t("תוקף: ")}${fmtDate(card.expiry)}` : ""}`;
     if (navigator.share) {
       navigator.share({ title: "ארנק הטבות", text });
     } else {
@@ -915,8 +919,8 @@ export default function App() {
       imported++;
     }
     await loadCardsFromDB();
-    showToast(`יובאו ${imported} כרטיסים בהצלחה! 🎉`);
-    if (skipped > 0) showToast(`${skipped} כרטיסים דולגו`, "warn");
+    showToast(ti("יובאו {n} כרטיסים בהצלחה! 🎉", { n: imported }));
+    if (skipped > 0) showToast(ti("{n} כרטיסים דולגו", { n: skipped }), "warn");
     setView("dashboard");
   };
 
@@ -943,7 +947,7 @@ export default function App() {
       <div style={{ minHeight: "100vh", background: "#0a0f1e", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ textAlign: "center", color: "#6b7280" }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>🎁</div>
-          <div style={{ fontSize: 16 }}>טוען...</div>
+          <div style={{ fontSize: 16 }}>{t("טוען...")}</div>
         </div>
       </div>
     );
@@ -957,7 +961,7 @@ export default function App() {
       <div style={{ minHeight: "100vh", background: "#0a0f1e", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ textAlign: "center", color: "#6b7280" }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>🔐</div>
-          <div style={{ fontSize: 16 }}>טוען...</div>
+          <div style={{ fontSize: 16 }}>{t("טוען...")}</div>
         </div>
       </div>
     );
@@ -993,7 +997,7 @@ export default function App() {
   if (view === "stats") return (
     <Suspense fallback={
       <div style={{ minHeight: "100vh", background: "#0a0f1e", display: "flex", alignItems: "center", justifyContent: "center", color: "#6b7280" }}>
-        <div style={{ textAlign: "center" }}><div style={{ fontSize: 40, marginBottom: 12 }}>📊</div>טוען...</div>
+        <div style={{ textAlign: "center" }}><div style={{ fontSize: 40, marginBottom: 12 }}>📊</div>{t("טוען...")}</div>
       </div>
     }>
       <StatsView cards={cards} onBack={() => setView("dashboard")} />
@@ -1006,102 +1010,117 @@ export default function App() {
       <div style={S.page}>
         <div style={S.container}>
           <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
-            <button style={S.backBtn} onClick={() => setView("dashboard")}>→ חזרה</button>
-            <h1 style={{ ...S.title, margin: 0 }}>⚙️ הגדרות</h1>
+            <button style={S.backBtn} onClick={() => setView("dashboard")}>{t("→ חזרה")}</button>
+            <h1 style={{ ...S.title, margin: 0 }}>{t("⚙️ הגדרות")}</h1>
           </header>
 
           <div style={S.sectionCard}>
-            <h3 style={S.sectionTitle}>🔒 אבטחה והצפנה</h3>
+            <h3 style={S.sectionTitle}>{t("🌐 שפה")}</h3>
+            <div style={{ display: "flex", gap: 10 }}>
+              {Object.entries(LANGS).map(([code, label]) => (
+                <button key={code} onClick={() => changeLang(code)}
+                  style={{ flex: 1, padding: "11px 14px", borderRadius: 14, cursor: "pointer", fontFamily: "inherit", fontWeight: 700, fontSize: 14,
+                    border: getLang() === code ? "1px solid #6c63ff" : "1px solid #1f2937",
+                    background: getLang() === code ? "#6c63ff" : "none",
+                    color: getLang() === code ? "#fff" : "#9ca3af" }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={S.sectionCard}>
+            <h3 style={S.sectionTitle}>{t("🔒 אבטחה והצפנה")}</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ color: "#10b981", fontSize: 14 }}>✓ הקודים שלך מוצפנים בסיסמה (נדרשת בכל כניסה)</div>
-              <button style={S.outlineBtn} onClick={() => setSecurityModal("change")}>🔑 שנה סיסמת הצפנה</button>
-              <button style={S.outlineBtn} onClick={() => setSecurityModal("regen")}>♻️ צור קוד שחזור חדש</button>
+              <div style={{ color: "#10b981", fontSize: 14 }}>{t("✓ הקודים שלך מוצפנים בסיסמה (נדרשת בכל כניסה)")}</div>
+              <button style={S.outlineBtn} onClick={() => setSecurityModal("change")}>{t("🔑 שנה סיסמת הצפנה")}</button>
+              <button style={S.outlineBtn} onClick={() => setSecurityModal("regen")}>{t("♻️ צור קוד שחזור חדש")}</button>
               <div style={{ height: 1, background: "#1f2937", margin: "4px 0" }} />
-              <div style={{ color: "#9ca3af", fontSize: 13 }}>קוד חשיפה — נדרש לפני הצגת קוד של כרטיס</div>
+              <div style={{ color: "#9ca3af", fontSize: 13 }}>{t("קוד חשיפה — נדרש לפני הצגת קוד של כרטיס")}</div>
               {revealPinRecord ? (
                 <>
-                  <div style={{ color: "#10b981", fontSize: 14 }}>✓ קוד חשיפה פעיל</div>
-                  <button style={S.outlineBtn} onClick={() => setPinSetModal("set")}>שנה קוד חשיפה</button>
-                  <button style={{ ...S.outlineBtn, borderColor: "#ef4444", color: "#ef4444" }} onClick={() => setPinSetModal("remove")}>הסר קוד חשיפה</button>
+                  <div style={{ color: "#10b981", fontSize: 14 }}>{t("✓ קוד חשיפה פעיל")}</div>
+                  <button style={S.outlineBtn} onClick={() => setPinSetModal("set")}>{t("שנה קוד חשיפה")}</button>
+                  <button style={{ ...S.outlineBtn, borderColor: "#ef4444", color: "#ef4444" }} onClick={() => setPinSetModal("remove")}>{t("הסר קוד חשיפה")}</button>
                 </>
               ) : (
-                <button style={S.outlineBtn} onClick={() => setPinSetModal("set")}>🔢 הגדר קוד חשיפה (PIN)</button>
+                <button style={S.outlineBtn} onClick={() => setPinSetModal("set")}>{t("🔢 הגדר קוד חשיפה (PIN)")}</button>
               )}
             </div>
           </div>
 
           <div style={S.sectionCard}>
-            <h3 style={S.sectionTitle}>📄 משפטי</h3>
+            <h3 style={S.sectionTitle}>{t("📄 משפטי")}</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <button style={{ ...S.outlineBtn, textAlign: "right" }} onClick={() => setView("privacy")}>🔒 מדיניות פרטיות</button>
-              <button style={{ ...S.outlineBtn, textAlign: "right" }} onClick={() => setView("terms")}>📋 תנאי שימוש</button>
+              <button style={{ ...S.outlineBtn, textAlign: getLang() === "he" ? "right" : "left" }} onClick={() => setView("privacy")}>{t("🔒 מדיניות פרטיות")}</button>
+              <button style={{ ...S.outlineBtn, textAlign: getLang() === "he" ? "right" : "left" }} onClick={() => setView("terms")}>{t("📋 תנאי שימוש")}</button>
             </div>
           </div>
 
           <div style={S.sectionCard}>
-            <h3 style={S.sectionTitle}>👤 חשבון</h3>
-            <div style={{ color: "#9ca3af", fontSize: 14, marginBottom: 12 }}>מחובר כ: <strong style={{ color: "#e8eaf6" }}>{session.user.email}</strong></div>
+            <h3 style={S.sectionTitle}>{t("👤 חשבון")}</h3>
+            <div style={{ color: "#9ca3af", fontSize: 14, marginBottom: 12 }}>{t("מחובר כ: ")}<strong style={{ color: "#e8eaf6" }}>{session.user.email}</strong></div>
             <button style={{ ...S.outlineBtn, borderColor: "#ef4444", color: "#ef4444" }} onClick={async () => { await supabase.auth.signOut(); }}>
-              🚪 התנתק
+              {t("🚪 התנתק")}
             </button>
           </div>
 
           <div style={S.sectionCard}>
-            <h3 style={S.sectionTitle}>💾 גיבוי והעברת נתונים</h3>
+            <h3 style={S.sectionTitle}>{t("💾 גיבוי והעברת נתונים")}</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <button style={S.primaryBtn} onClick={exportData}>📥 ייצא גיבוי מוצפן</button>
-              <div style={{ color: "#4b5563", fontSize: 11, marginBottom: 4 }}>הקובץ מוצפן בסיסמה שתבחר — בטוח לשמירה בענן או במייל</div>
+              <button style={S.primaryBtn} onClick={exportData}>{t("📥 ייצא גיבוי מוצפן")}</button>
+              <div style={{ color: "#4b5563", fontSize: 11, marginBottom: 4 }}>{t("הקובץ מוצפן בסיסמה שתבחר — בטוח לשמירה בענן או במייל")}</div>
               <div style={{ height: 1, background: "#1f2937", margin: "4px 0" }} />
               <button style={S.outlineBtn} onClick={() => importRef.current?.click()}>
-                📤 ייבא גיבוי
+                {t("📤 ייבא גיבוי")}
               </button>
               <input ref={importRef} type="file" accept=".json" style={{ display: "none" }} onChange={importOldBackup} />
-              <div style={{ color: "#4b5563", fontSize: 11 }}>תומך בגיבוי מוצפן וגם בגיבוי ישן. הנתונים מסונכרנים בין כל המכשירים</div>
+              <div style={{ color: "#4b5563", fontSize: 11 }}>{t("תומך בגיבוי מוצפן וגם בגיבוי ישן. הנתונים מסונכרנים בין כל המכשירים")}</div>
             </div>
           </div>
 
           <div style={S.sectionCard}>
-            <h3 style={S.sectionTitle}>📊 נתונים</h3>
+            <h3 style={S.sectionTitle}>{t("📊 נתונים")}</h3>
             <div style={{ display: "flex", justifyContent: "space-between", color: "#ccd6f6", fontSize: 14, marginBottom: 10 }}>
-              <span>סה״כ כרטיסים</span><span style={{ fontWeight: 700 }}>{cards.length}</span>
+              <span>{t("סה״כ כרטיסים")}</span><span style={{ fontWeight: 700 }}>{cards.length}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", color: "#ccd6f6", fontSize: 14 }}>
-              <span>סה״כ עסקאות</span><span style={{ fontWeight: 700 }}>{cards.flatMap(c => c.transactions || []).length}</span>
+              <span>{t("סה״כ עסקאות")}</span><span style={{ fontWeight: 700 }}>{cards.flatMap(c => c.transactions || []).length}</span>
             </div>
           </div>
         </div>
 
         {securityModal === "change" && (
-          <Modal title="שנה סיסמת הצפנה" onClose={() => setSecurityModal(null)}>
+          <Modal title={t("שנה סיסמת הצפנה")} onClose={() => setSecurityModal(null)}>
             <ChangePassphraseForm onSave={handleChangePassphrase} />
           </Modal>
         )}
 
         {securityModal === "regen" && (
-          <Modal title="צור קוד שחזור חדש" onClose={() => setSecurityModal(null)}>
+          <Modal title={t("צור קוד שחזור חדש")} onClose={() => setSecurityModal(null)}>
             <p style={{ color: "#9ca3af", fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>
-              יצירת קוד שחזור חדש <strong style={{ color: "#fbbf24" }}>תבטל את הקוד הישן</strong>. רק הקוד החדש יעבוד מעכשיו.
+              {t("יצירת קוד שחזור חדש ")}<strong style={{ color: "#fbbf24" }}>{t("תבטל את הקוד הישן")}</strong>{t(". רק הקוד החדש יעבוד מעכשיו.")}
             </p>
-            <button style={S.primaryBtn} onClick={handleRegenerateRecovery}>צור קוד חדש</button>
-            <button style={{ ...S.outlineBtn, marginTop: 10 }} onClick={() => setSecurityModal(null)}>ביטול</button>
+            <button style={S.primaryBtn} onClick={handleRegenerateRecovery}>{t("צור קוד חדש")}</button>
+            <button style={{ ...S.outlineBtn, marginTop: 10 }} onClick={() => setSecurityModal(null)}>{t("ביטול")}</button>
           </Modal>
         )}
 
         {recoveryCodeToShow && (
-          <Modal title="קוד שחזור חדש" onClose={() => setRecoveryCodeToShow(null)}>
+          <Modal title={t("קוד שחזור חדש")} onClose={() => setRecoveryCodeToShow(null)}>
             <RecoveryScreen code={recoveryCodeToShow} inModal onDone={() => setRecoveryCodeToShow(null)} />
           </Modal>
         )}
 
         {pinSetModal === "set" && (
-          <Modal title="קוד חשיפה" onClose={() => setPinSetModal(null)}>
-            <RevealPinPad mode="set" title="בחר קוד חשיפה" onSet={handleSetRevealPin} onCancel={() => setPinSetModal(null)} />
+          <Modal title={t("קוד חשיפה")} onClose={() => setPinSetModal(null)}>
+            <RevealPinPad mode="set" title={t("בחר קוד חשיפה")} onSet={handleSetRevealPin} onCancel={() => setPinSetModal(null)} />
           </Modal>
         )}
 
         {pinSetModal === "remove" && (
-          <Modal title="הסר קוד חשיפה" onClose={() => setPinSetModal(null)}>
-            <RevealPinPad mode="verify" title="אמת את הקוד הנוכחי"
+          <Modal title={t("הסר קוד חשיפה")} onClose={() => setPinSetModal(null)}>
+            <RevealPinPad mode="verify" title={t("אמת את הקוד הנוכחי")}
               onVerify={async (pin) => {
                 const ok = await verifyPinRecord(pin, revealPinRecord);
                 if (ok) handleRemoveRevealPin();
@@ -1112,13 +1131,13 @@ export default function App() {
         )}
 
         {backupModal === "export" && (
-          <Modal title="ייצוא גיבוי מוצפן" onClose={() => setBackupModal(null)}>
+          <Modal title={t("ייצוא גיבוי מוצפן")} onClose={() => setBackupModal(null)}>
             <BackupPasswordForm mode="export" onSubmit={doExport} />
           </Modal>
         )}
 
         {backupModal === "import" && (
-          <Modal title="שחזור מגיבוי מוצפן" onClose={() => { setBackupModal(null); setPendingImport(null); }}>
+          <Modal title={t("שחזור מגיבוי מוצפן")} onClose={() => { setBackupModal(null); setPendingImport(null); }}>
             <BackupPasswordForm mode="import" onSubmit={doImport} />
           </Modal>
         )}
@@ -1134,50 +1153,50 @@ export default function App() {
       <div style={S.page}>
         <div style={S.container}>
           <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-            <button style={S.backBtn} onClick={() => { setView(editingCard ? "detail" : "dashboard"); setEditingCard(null); setForm({ provider: "buyme", code: "", originalAmount: "", expiry: "", expiryDisplay: "", notes: "", image: null, color: "", storeName: "", cvv: "", cardHolder: "" }); }}>→ חזרה</button>
-            <h1 style={{ ...S.title, margin: 0 }}>{editingCard ? "ערוך כרטיס" : form.provider === "credit" ? "הוסף זיכוי" : "הוסף כרטיס"}</h1>
+            <button style={S.backBtn} onClick={() => { setView(editingCard ? "detail" : "dashboard"); setEditingCard(null); setForm({ provider: "buyme", code: "", originalAmount: "", expiry: "", expiryDisplay: "", notes: "", image: null, color: "", storeName: "", cvv: "", cardHolder: "" }); }}>{t("→ חזרה")}</button>
+            <h1 style={{ ...S.title, margin: 0 }}>{editingCard ? t("ערוך כרטיס") : form.provider === "credit" ? t("הוסף זיכוי") : t("הוסף כרטיס")}</h1>
           </header>
 
           <div style={{ background: `linear-gradient(135deg, ${cardBg}ee, ${cardBg}88)`, borderRadius: 20, padding: "20px 22px", marginBottom: 20, color: "#fff" }}>
             <div style={{ fontSize: 28 }}>{prov.icon}</div>
-            <div style={{ fontSize: 18, fontWeight: 700, marginTop: 6 }}>{form.provider === "credit" && form.storeName ? form.storeName : prov.name}</div>
-            {form.provider === "credit" && <div style={{ background: "#ffffff33", display: "inline-block", padding: "2px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, marginTop: 4 }}>↩️ זיכוי חנות</div>}
-            <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4, fontFamily: "monospace" }}>{form.code || (form.provider === "credit" ? "ללא קוד" : "XXXX-XXXX-XXXX")}</div>
+            <div style={{ fontSize: 18, fontWeight: 700, marginTop: 6 }}>{form.provider === "credit" && form.storeName ? form.storeName : t(prov.name)}</div>
+            {form.provider === "credit" && <div style={{ background: "#ffffff33", display: "inline-block", padding: "2px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, marginTop: 4 }}>{t("↩️ זיכוי חנות")}</div>}
+            <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4, fontFamily: "monospace" }}>{form.code || (form.provider === "credit" ? t("ללא קוד") : "XXXX-XXXX-XXXX")}</div>
             <div style={{ fontSize: 26, fontWeight: 800, marginTop: 12 }}>{form.originalAmount ? fmt(form.originalAmount) : "₪0.00"}</div>
           </div>
 
           <div style={S.card}>
             <div style={S.formGroup}>
-              <label style={S.label}>ספק</label>
+              <label style={S.label}>{t("ספק")}</label>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
                 {PROVIDERS.map((p) => (
                   <button key={p.id} style={{ ...S.providerBtn, background: form.provider === p.id ? p.color : "#0d1117", border: `2px solid ${form.provider === p.id ? p.color : "#2d3250"}` }} onClick={() => setForm(f => ({ ...f, provider: p.id }))}>
                     <span style={{ fontSize: 18 }}>{p.icon}</span>
-                    <span style={{ fontSize: 10, marginTop: 3, color: form.provider === p.id ? "#fff" : "#8892b0" }}>{p.name}</span>
+                    <span style={{ fontSize: 10, marginTop: 3, color: form.provider === p.id ? "#fff" : "#8892b0" }}>{t(p.name)}</span>
                   </button>
                 ))}
               </div>
             </div>
 
             <div style={S.formGroup}>
-              <label style={S.label}>קוד הכרטיס {form.provider === "credit" ? "/ מספר זיכוי (אופציונלי)" : ""}</label>
-              <input style={S.input} placeholder={form.provider === "credit" ? "מספר זיכוי (אופציונלי)" : "לדוגמה: GIFT-1234-ABCD"} value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} dir="ltr" />
+              <label style={S.label}>{t("קוד הכרטיס ")}{form.provider === "credit" ? t("/ מספר זיכוי (אופציונלי)") : ""}</label>
+              <input style={S.input} placeholder={form.provider === "credit" ? t("מספר זיכוי (אופציונלי)") : t("לדוגמה: GIFT-1234-ABCD")} value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} dir="ltr" />
             </div>
 
             {form.provider === "credit" && (
               <div style={S.formGroup}>
-                <label style={S.label}>שם החנות</label>
-                <input style={S.input} placeholder="לדוגמה: זארה, H&M, קסטרו..." value={form.storeName} onChange={e => setForm(f => ({ ...f, storeName: e.target.value }))} />
+                <label style={S.label}>{t("שם החנות")}</label>
+                <input style={S.input} placeholder={t("לדוגמה: זארה, H&M, קסטרו...")} value={form.storeName} onChange={e => setForm(f => ({ ...f, storeName: e.target.value }))} />
               </div>
             )}
 
             <div style={{ display: "flex", gap: 12 }}>
               <div style={{ ...S.formGroup, flex: 1, minWidth: 0 }}>
-                <label style={S.label}>סכום (₪)</label>
+                <label style={S.label}>{t("סכום (₪)")}</label>
                 <input style={S.input} type="number" placeholder="0.00" value={form.originalAmount} onChange={e => setForm(f => ({ ...f, originalAmount: e.target.value }))} />
               </div>
               <div style={{ ...S.formGroup, flex: 1, minWidth: 0 }}>
-                <label style={S.label}>תוקף (MM/YY)</label>
+                <label style={S.label}>{t("תוקף (MM/YY)")}</label>
                 <input
                   style={{ ...S.input, width: "100%" }}
                   type="text"
@@ -1205,13 +1224,13 @@ export default function App() {
                 <input style={S.input} type="password" placeholder="•••" maxLength={4} value={form.cvv} onChange={e => setForm(f => ({ ...f, cvv: e.target.value }))} dir="ltr" />
               </div>
               <div style={{ ...S.formGroup, flex: 2, minWidth: 0 }}>
-                <label style={S.label}>שם בעל הכרטיס</label>
-                <input style={S.input} placeholder="ישראל ישראלי" value={form.cardHolder} onChange={e => setForm(f => ({ ...f, cardHolder: e.target.value }))} />
+                <label style={S.label}>{t("שם בעל הכרטיס")}</label>
+                <input style={S.input} placeholder={t("ישראל ישראלי")} value={form.cardHolder} onChange={e => setForm(f => ({ ...f, cardHolder: e.target.value }))} />
               </div>
             </div>
 
             <div style={S.formGroup}>
-              <label style={S.label}>צבע מותאם</label>
+              <label style={S.label}>{t("צבע מותאם")}</label>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 {["", "#E91E8C", "#6C3FC5", "#FF6B35", "#00B894", "#FF9900", "#4285F4", "#ef4444", "#0ea5e9"].map(c => (
                   <button key={c} style={{ width: 32, height: 32, borderRadius: "50%", background: c || "#2d3250", border: form.color === c ? "3px solid #fff" : "2px solid #2d3250", cursor: "pointer", flexShrink: 0 }} onClick={() => setForm(f => ({ ...f, color: c }))} />
@@ -1220,21 +1239,21 @@ export default function App() {
             </div>
 
             <div style={S.formGroup}>
-              <label style={S.label}>תמונת כרטיס (אופציונלי)</label>
+              <label style={S.label}>{t("תמונת כרטיס (אופציונלי)")}</label>
               <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                <button style={S.outlineBtn} onClick={() => fileRef.current?.click()}>📷 העלה תמונה</button>
-                {form.image && <button style={{ ...S.outlineBtn, borderColor: "#ef4444", color: "#ef4444" }} onClick={() => setForm(f => ({ ...f, image: null }))}>הסר</button>}
+                <button style={S.outlineBtn} onClick={() => fileRef.current?.click()}>{t("📷 העלה תמונה")}</button>
+                {form.image && <button style={{ ...S.outlineBtn, borderColor: "#ef4444", color: "#ef4444" }} onClick={() => setForm(f => ({ ...f, image: null }))}>{t("הסר")}</button>}
                 <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleImageUpload} />
               </div>
               {form.image && <img src={form.image} alt="" style={{ marginTop: 10, width: "100%", borderRadius: 12, maxHeight: 120, objectFit: "cover" }} />}
             </div>
 
             <div style={S.formGroup}>
-              <label style={S.label}>הערות</label>
-              <input style={S.input} placeholder="מאיפה קיבלת? לאיזה מטרה?" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+              <label style={S.label}>{t("הערות")}</label>
+              <input style={S.input} placeholder={t("מאיפה קיבלת? לאיזה מטרה?")} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
             </div>
 
-            <button style={S.primaryBtn} onClick={addCard}>{editingCard ? "✓ שמור שינויים" : "+ הוסף"}</button>
+            <button style={S.primaryBtn} onClick={addCard}>{editingCard ? t("✓ שמור שינויים") : t("+ הוסף")}</button>
           </div>
         </div>
         {toast && <Toast toast={toast} />}
@@ -1250,44 +1269,44 @@ export default function App() {
       <div style={S.page}>
         <div style={S.container}>
           <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-            <button style={S.backBtn} onClick={() => setView("detail")}>→ חזרה</button>
-            <h1 style={{ ...S.title, margin: 0 }}>רישום שימוש</h1>
+            <button style={S.backBtn} onClick={() => setView("detail")}>{t("→ חזרה")}</button>
+            <h1 style={{ ...S.title, margin: 0 }}>{t("רישום שימוש")}</h1>
           </header>
           <div style={{ background: `linear-gradient(135deg, ${cardColor}ee, ${cardColor}88)`, borderRadius: 20, padding: "20px 22px", marginBottom: 20, color: "#fff", textAlign: "center" }}>
-            <div style={{ opacity: 0.8, fontSize: 13 }}>יתרה זמינה</div>
+            <div style={{ opacity: 0.8, fontSize: 13 }}>{t("יתרה זמינה")}</div>
             <div style={{ fontSize: 36, fontWeight: 800 }}>{fmt(selectedCard.remainingAmount)}</div>
-            <div style={{ opacity: 0.7, fontSize: 13 }}>{prov.icon} {prov.name}</div>
+            <div style={{ opacity: 0.7, fontSize: 13 }}>{prov.icon} {t(prov.name)}</div>
           </div>
           <div style={S.card}>
             <div style={S.formGroup}>
-              <label style={S.label}>חנות / עסק</label>
-              <input style={S.input} placeholder="לדוגמה: זארה, ספרים ועוד..." value={useForm.store} onChange={e => setUseForm(f => ({ ...f, store: e.target.value }))} />
+              <label style={S.label}>{t("חנות / עסק")}</label>
+              <input style={S.input} placeholder={t("לדוגמה: זארה, ספרים ועוד...")} value={useForm.store} onChange={e => setUseForm(f => ({ ...f, store: e.target.value }))} />
             </div>
             <div style={{ display: "flex", gap: 12 }}>
               <div style={{ ...S.formGroup, flex: 1 }}>
-                <label style={S.label}>סכום (₪)</label>
+                <label style={S.label}>{t("סכום (₪)")}</label>
                 <input style={S.input} type="number" placeholder="0.00" value={useForm.amount} onChange={e => setUseForm(f => ({ ...f, amount: e.target.value }))} />
               </div>
               <div style={{ ...S.formGroup, flex: 1 }}>
-                <label style={S.label}>תאריך</label>
+                <label style={S.label}>{t("תאריך")}</label>
                 <input style={S.input} type="date" value={useForm.date} onChange={e => setUseForm(f => ({ ...f, date: e.target.value }))} />
               </div>
             </div>
             <div style={S.formGroup}>
-              <label style={S.label}>קטגוריה</label>
+              <label style={S.label}>{t("קטגוריה")}</label>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {CATEGORIES.map(cat => (
                   <button key={cat} style={{ border: "none", borderRadius: 20, padding: "7px 14px", cursor: "pointer", fontFamily: "inherit", fontSize: 13, background: useForm.purpose === cat ? "#6c63ff" : "#0d1117", color: useForm.purpose === cat ? "#fff" : "#8892b0", borderWidth: 2, borderStyle: "solid", borderColor: useForm.purpose === cat ? "#6c63ff" : "#2d3250" }} onClick={() => setUseForm(f => ({ ...f, purpose: cat }))}>
-                    {CATEGORY_ICONS[cat]} {cat}
+                    {CATEGORY_ICONS[cat]} {t(cat)}
                   </button>
                 ))}
               </div>
             </div>
             <div style={S.formGroup}>
-              <label style={S.label}>הערות</label>
-              <input style={S.input} placeholder="מה קנית?" value={useForm.notes} onChange={e => setUseForm(f => ({ ...f, notes: e.target.value }))} />
+              <label style={S.label}>{t("הערות")}</label>
+              <input style={S.input} placeholder={t("מה קנית?")} value={useForm.notes} onChange={e => setUseForm(f => ({ ...f, notes: e.target.value }))} />
             </div>
-            <button style={S.primaryBtn} onClick={recordUse}>✓ רשום שימוש</button>
+            <button style={S.primaryBtn} onClick={recordUse}>{t("✓ רשום שימוש")}</button>
           </div>
         </div>
         {toast && <Toast toast={toast} />}
@@ -1307,10 +1326,10 @@ export default function App() {
       <div style={S.page}>
         <div style={S.container}>
           <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <button style={S.backBtn} onClick={() => setView("dashboard")}>→ חזרה</button>
+            <button style={S.backBtn} onClick={() => setView("dashboard")}>{t("→ חזרה")}</button>
             <div style={{ display: "flex", gap: 12 }}>
-              <button style={S.backBtn} onClick={() => { setForm({ provider: selectedCard.provider, code: selectedCard.code || "", originalAmount: String(selectedCard.originalAmount), expiry: selectedCard.expiry || "", expiryDisplay: selectedCard.expiry ? `${selectedCard.expiry.slice(5, 7)}/${selectedCard.expiry.slice(2, 4)}` : "", notes: selectedCard.notes || "", image: selectedCard.image, color: selectedCard.color || "", storeName: selectedCard.storeName || "", cvv: selectedCard.cvv || "", cardHolder: selectedCard.cardHolder || "" }); setEditingCard(selectedCard); setView("add"); }}>✏️ ערוך</button>
-              <button style={{ ...S.backBtn }} onClick={() => setShareModal(selectedCard)}>🔗 שתף</button>
+              <button style={S.backBtn} onClick={() => { setForm({ provider: selectedCard.provider, code: selectedCard.code || "", originalAmount: String(selectedCard.originalAmount), expiry: selectedCard.expiry || "", expiryDisplay: selectedCard.expiry ? `${selectedCard.expiry.slice(5, 7)}/${selectedCard.expiry.slice(2, 4)}` : "", notes: selectedCard.notes || "", image: selectedCard.image, color: selectedCard.color || "", storeName: selectedCard.storeName || "", cvv: selectedCard.cvv || "", cardHolder: selectedCard.cardHolder || "" }); setEditingCard(selectedCard); setView("add"); }}>{t("✏️ ערוך")}</button>
+              <button style={{ ...S.backBtn }} onClick={() => setShareModal(selectedCard)}>{t("🔗 שתף")}</button>
               <button style={{ ...S.backBtn, color: "#ef4444" }} onClick={() => setConfirmDeleteId(selectedCard.id)}>🗑</button>
             </div>
           </header>
@@ -1319,22 +1338,22 @@ export default function App() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div>
                 <div style={{ fontSize: 30 }}>{prov.icon}</div>
-                <div style={{ fontSize: 20, fontWeight: 800, marginTop: 6 }}>{selectedCard.provider === "credit" && selectedCard.storeName ? selectedCard.storeName : prov.name}</div>
-                {selectedCard.provider === "credit" && <div style={{ background: "#ffffff33", display: "inline-block", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, marginTop: 4 }}>↩️ זיכוי חנות</div>}
+                <div style={{ fontSize: 20, fontWeight: 800, marginTop: 6 }}>{selectedCard.provider === "credit" && selectedCard.storeName ? selectedCard.storeName : t(prov.name)}</div>
+                {selectedCard.provider === "credit" && <div style={{ background: "#ffffff33", display: "inline-block", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, marginTop: 4 }}>{t("↩️ זיכוי חנות")}</div>}
                 <div style={{ opacity: 0.75, fontSize: 13, fontFamily: "monospace", marginTop: 4 }}>
                   {revealedCards[selectedCard.id] ? selectedCard.code : "•••• •••• ••••"}
                 </div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
-                {selectedCard.fullyUsed && <span style={{ background: "#ffffff33", padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700 }}>נוצל במלואו</span>}
-                {expired && !selectedCard.fullyUsed && <span style={{ background: "#ef444433", color: "#fca5a5", padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700 }}>פג תוקף</span>}
-                {isExpiringSoon(selectedCard.expiry) && !selectedCard.fullyUsed && <span style={{ background: "#f59e0b33", color: "#fcd34d", padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700 }}>⚠ {dl} ימים!</span>}
+                {selectedCard.fullyUsed && <span style={{ background: "#ffffff33", padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700 }}>{t("נוצל במלואו")}</span>}
+                {expired && !selectedCard.fullyUsed && <span style={{ background: "#ef444433", color: "#fca5a5", padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700 }}>{t("פג תוקף")}</span>}
+                {isExpiringSoon(selectedCard.expiry) && !selectedCard.fullyUsed && <span style={{ background: "#f59e0b33", color: "#fcd34d", padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700 }}>{ti("⚠ {n} ימים!", { n: dl })}</span>}
               </div>
             </div>
             <div style={{ marginTop: 20 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, opacity: 0.8, fontSize: 13 }}>
-                <span>נוצל {usedPct}%</span>
-                <span>תוקף: {fmtDate(selectedCard.expiry)}</span>
+                <span>{ti("נוצל {n}%", { n: usedPct })}</span>
+                <span>{t("תוקף: ")}{fmtDate(selectedCard.expiry)}</span>
               </div>
               <div style={{ ...S.progressBg, background: "#ffffff22" }}>
                 <div style={{ ...S.progressFill, width: `${usedPct}%`, background: "#ffffff" }} />
@@ -1342,10 +1361,10 @@ export default function App() {
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: 14 }}>
                 <div>
                   <div style={{ fontSize: 34, fontWeight: 800 }}>{fmt(selectedCard.remainingAmount)}</div>
-                  <div style={{ opacity: 0.7, fontSize: 12 }}>מתוך {fmt(selectedCard.originalAmount)}</div>
+                  <div style={{ opacity: 0.7, fontSize: 12 }}>{t("מתוך ")}{fmt(selectedCard.originalAmount)}</div>
                 </div>
                 <div style={{ textAlign: "left" }}>
-                  <div style={{ opacity: 0.7, fontSize: 12 }}>נוצל</div>
+                  <div style={{ opacity: 0.7, fontSize: 12 }}>{t("נוצל")}</div>
                   <div style={{ fontSize: 20, fontWeight: 700 }}>{fmt(selectedCard.originalAmount - selectedCard.remainingAmount)}</div>
                 </div>
               </div>
@@ -1357,13 +1376,13 @@ export default function App() {
               {revealedCards[selectedCard.id] ? (
                 <div style={{ marginBottom: 14, borderRadius: 18, overflow: "hidden", border: "1px solid #1f2937", cursor: "zoom-in", position: "relative" }} onClick={() => setLightbox(selectedCard.image)}>
                   <img src={selectedCard.image} alt="תמונת כרטיס" style={{ width: "100%", display: "block", objectFit: "contain", background: "#0a0f1e" }} />
-                  <div style={{ position: "absolute", bottom: 8, left: 8, background: "#000a", color: "#fff", fontSize: 11, padding: "4px 10px", borderRadius: 20, fontWeight: 600 }}>🔍 לחץ להגדלה</div>
+                  <div style={{ position: "absolute", bottom: 8, left: 8, background: "#000a", color: "#fff", fontSize: 11, padding: "4px 10px", borderRadius: 20, fontWeight: 600 }}>{t("🔍 לחץ להגדלה")}</div>
                 </div>
               ) : (
                 <div style={{ marginBottom: 14, borderRadius: 18, overflow: "hidden", border: "1px solid #1f2937", position: "relative", background: "#111827", height: 120, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <div style={{ filter: "blur(12px)", position: "absolute", inset: 0, backgroundImage: `url(${selectedCard.image})`, backgroundSize: "cover", backgroundPosition: "center", opacity: 0.4 }} />
                   <button style={{ position: "relative", zIndex: 1, background: "#000a", border: "1px solid #2d3250", color: "#fff", padding: "10px 20px", borderRadius: 20, cursor: "pointer", fontSize: 14, fontWeight: 600, fontFamily: "inherit" }} onClick={() => revealSensitiveData(selectedCard)}>
-                    👁 הצג תמונה
+                    {t("👁 הצג תמונה")}
                   </button>
                 </div>
               )}
@@ -1379,24 +1398,24 @@ export default function App() {
           {/* Sensitive data: Code + CVV */}
           <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: 16, padding: 16, marginBottom: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <span style={{ color: "#6b7280", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>פרטים מוגנים</span>
+              <span style={{ color: "#6b7280", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>{t("פרטים מוגנים")}</span>
               {revealedCards[selectedCard.id] ? (
-                <span style={{ color: "#10b981", fontSize: 11, fontWeight: 600 }}>🔓 גלוי — נסתר בקרוב</span>
+                <span style={{ color: "#10b981", fontSize: 11, fontWeight: 600 }}>{t("🔓 גלוי — נסתר בקרוב")}</span>
               ) : (
                 <button style={{ background: "linear-gradient(135deg, #6c63ff, #a855f7)", border: "none", color: "#fff", padding: "6px 14px", borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }} onClick={() => revealSensitiveData(selectedCard)}>
-                  👁 הצג
+                  {t("👁 הצג")}
                 </button>
               )}
             </div>
 
             <div style={{ display: "flex", gap: 12 }}>
               <div style={{ flex: 2, minWidth: 0 }}>
-                <div style={{ color: "#6b7280", fontSize: 11, marginBottom: 4 }}>קוד כרטיס</div>
+                <div style={{ color: "#6b7280", fontSize: 11, marginBottom: 4 }}>{t("קוד כרטיס")}</div>
                 <div style={{ fontFamily: "monospace", fontSize: 15, color: "#e8eaf6", letterSpacing: 2, overflowWrap: "anywhere" }}>
                   {revealedCards[selectedCard.id] ? selectedCard.code : "•••• •••• ••••"}
                 </div>
                 {revealedCards[selectedCard.id] && selectedCard.code && (
-                  <button onClick={() => copyText(selectedCard.code)} style={{ marginTop: 8, background: "#1e2235", border: "1px solid #2d3250", color: "#a8b2d8", padding: "5px 12px", borderRadius: 18, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>📋 העתק קוד</button>
+                  <button onClick={() => copyText(selectedCard.code)} style={{ marginTop: 8, background: "#1e2235", border: "1px solid #2d3250", color: "#a8b2d8", padding: "5px 12px", borderRadius: 18, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{t("📋 העתק קוד")}</button>
                 )}
               </div>
               {selectedCard.cvv && (
@@ -1410,7 +1429,7 @@ export default function App() {
             </div>
             {selectedCard.cardHolder && (
               <div style={{ marginTop: 10 }}>
-                <div style={{ color: "#6b7280", fontSize: 11, marginBottom: 4 }}>שם בעל הכרטיס</div>
+                <div style={{ color: "#6b7280", fontSize: 11, marginBottom: 4 }}>{t("שם בעל הכרטיס")}</div>
                 <div style={{ fontSize: 14, color: "#e8eaf6" }}>{selectedCard.cardHolder}</div>
               </div>
             )}
@@ -1420,23 +1439,23 @@ export default function App() {
 
           {prov.checkUrl && (
             <a href={prov.checkUrl} target="_blank" rel="noreferrer" style={{ display: "block", textAlign: "center", background: "#111827", border: "1px solid #1f2937", color: "#a8b2d8", padding: "12px", borderRadius: 14, fontSize: 14, textDecoration: "none", marginBottom: 12 }}>
-              🔍 בדוק יתרה באתר {prov.name} ↗
+              {ti("🔍 בדוק יתרה באתר {name} ↗", { name: t(prov.name) })}
             </a>
           )}
 
           {!selectedCard.fullyUsed && !expired && (
-            <button style={S.primaryBtn} onClick={() => setView("use")}>+ רשום שימוש חדש</button>
+            <button style={S.primaryBtn} onClick={() => setView("use")}>{t("+ רשום שימוש חדש")}</button>
           )}
 
           <div style={{ marginTop: 28 }}>
-            <h3 style={{ ...S.sectionTitle, marginBottom: 12 }}>היסטוריית שימוש ({(selectedCard.transactions || []).length})</h3>
+            <h3 style={{ ...S.sectionTitle, marginBottom: 12 }}>{ti("היסטוריית שימוש ({n})", { n: (selectedCard.transactions || []).length })}</h3>
             {(selectedCard.transactions || []).length === 0 ? (
-              <div style={{ textAlign: "center", color: "#8892b0", padding: "28px", fontSize: 14 }}>אין שימוש רשום עדיין</div>
+              <div style={{ textAlign: "center", color: "#8892b0", padding: "28px", fontSize: 14 }}>{t("אין שימוש רשום עדיין")}</div>
             ) : [...(selectedCard.transactions || [])].sort((a, b) => new Date(b.date) - new Date(a.date)).map(tx => (
               <div key={tx.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0", borderBottom: "1px solid #1f2937" }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: 15, color: "#ccd6f6" }}>{tx.store}</div>
-                  <div style={{ color: "#8892b0", fontSize: 12, marginTop: 3 }}>{CATEGORY_ICONS[tx.purpose]} {tx.purpose} · {fmtDate(tx.date)}{tx.notes ? ` · ${tx.notes}` : ""}</div>
+                  <div style={{ color: "#8892b0", fontSize: 12, marginTop: 3 }}>{CATEGORY_ICONS[tx.purpose]} {t(tx.purpose)} · {fmtDate(tx.date)}{tx.notes ? ` · ${tx.notes}` : ""}</div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ color: "#ef4444", fontWeight: 700, fontSize: 16 }}>-{fmt(tx.amount)}</span>
@@ -1448,11 +1467,11 @@ export default function App() {
         </div>
 
         {revealPinModal && (
-          <Modal title="הצגת קוד" onClose={() => setRevealPinModal(null)}>
+          <Modal title={t("הצגת קוד")} onClose={() => setRevealPinModal(null)}>
             <RevealPinPad
               mode="verify"
-              title="הכנס קוד חשיפה"
-              subtitle="הפרטים יוצגו ל-30 שניות"
+              title={t("הכנס קוד חשיפה")}
+              subtitle={t("הפרטים יוצגו ל-30 שניות")}
               onVerify={async (pin) => {
                 const ok = await verifyPinRecord(pin, revealPinRecord);
                 if (ok) {
@@ -1468,26 +1487,26 @@ export default function App() {
         )}
 
         {confirmDeleteId && (
-          <Modal title="מחק כרטיס?" onClose={() => setConfirmDeleteId(null)}>
-            <p style={{ color: "#9ca3af", textAlign: "center", marginBottom: 24 }}>פעולה זו לא ניתנת לביטול.</p>
+          <Modal title={t("מחק כרטיס?")} onClose={() => setConfirmDeleteId(null)}>
+            <p style={{ color: "#9ca3af", textAlign: "center", marginBottom: 24 }}>{t("פעולה זו לא ניתנת לביטול.")}</p>
             <div style={{ display: "flex", gap: 12 }}>
-              <button style={{ ...S.primaryBtn, background: "#ef4444", flex: 1, marginTop: 0 }} onClick={() => deleteCard(confirmDeleteId)}>מחק</button>
-              <button style={{ ...S.outlineBtn, flex: 1 }} onClick={() => setConfirmDeleteId(null)}>ביטול</button>
+              <button style={{ ...S.primaryBtn, background: "#ef4444", flex: 1, marginTop: 0 }} onClick={() => deleteCard(confirmDeleteId)}>{t("מחק")}</button>
+              <button style={{ ...S.outlineBtn, flex: 1 }} onClick={() => setConfirmDeleteId(null)}>{t("ביטול")}</button>
             </div>
           </Modal>
         )}
 
         {shareModal && (
-          <Modal title="שתף כרטיס" onClose={() => setShareModal(null)}>
-            <p style={{ color: "#9ca3af", fontSize: 14, marginBottom: 20 }}>שתף את פרטי הכרטיס עם מישהו אחר</p>
+          <Modal title={t("שתף כרטיס")} onClose={() => setShareModal(null)}>
+            <p style={{ color: "#9ca3af", fontSize: 14, marginBottom: 20 }}>{t("שתף את פרטי הכרטיס עם מישהו אחר")}</p>
             <div style={{ background: "#0a0f1e", borderRadius: 12, padding: 16, marginBottom: 20, fontFamily: "monospace", fontSize: 13, color: "#a8b2d8", lineHeight: 1.8 }}>
-              🎁 {provider(shareModal.provider).name}<br />
-              קוד: {shareModal.code}<br />
-              יתרה: {fmt(shareModal.remainingAmount)}<br />
-              {shareModal.expiry && `תוקף: ${fmtDate(shareModal.expiry)}`}
+              🎁 {t(provider(shareModal.provider).name)}<br />
+              {t("קוד: ")}{shareModal.code}<br />
+              {t("יתרה: ")}{fmt(shareModal.remainingAmount)}<br />
+              {shareModal.expiry && `${t("תוקף: ")}${fmtDate(shareModal.expiry)}`}
             </div>
             <button style={S.primaryBtn} onClick={() => shareCard(shareModal)}>
-              {navigator.share ? "📤 שתף" : "📋 העתק פרטים"}
+              {navigator.share ? t("📤 שתף") : t("📋 העתק פרטים")}
             </button>
           </Modal>
         )}
@@ -1509,22 +1528,22 @@ export default function App() {
       <div style={{ position: "sticky", top: 0, zIndex: 50, background: "#0a0f1e", borderBottom: "1px solid #1f2937", padding: "16px 16px 12px", maxWidth: 520, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <div>
-            <h1 style={{ ...S.title, marginBottom: 2, fontSize: 22 }}>🎁 ארנק הטבות</h1>
+            <h1 style={{ ...S.title, marginBottom: 2, fontSize: 22 }}>{t("🎁 ארנק הטבות")}</h1>
             <div style={{ color: "#6b7280", fontSize: 11 }}>{session.user.email}</div>
           </div>
           <div style={{ display: "flex", gap: 10 }}>
             <button style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer" }} onClick={() => setView("stats")}>📊</button>
             <button style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer" }} onClick={() => setView("settings")}>⚙️</button>
-            <button style={S.addBtn} onClick={() => { setEditingCard(null); setForm({ provider: "buyme", code: "", originalAmount: "", expiry: "", expiryDisplay: "", notes: "", image: null, color: "", storeName: "", cvv: "", cardHolder: "" }); setView("add"); }}>+ הוסף</button>
+            <button style={S.addBtn} onClick={() => { setEditingCard(null); setForm({ provider: "buyme", code: "", originalAmount: "", expiry: "", expiryDisplay: "", notes: "", image: null, color: "", storeName: "", cvv: "", cardHolder: "" }); setView("add"); }}>{t("+ הוסף")}</button>
           </div>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
           {[
-            { label: "יתרה", value: fmt(totalRemaining), color: "#10b981" },
-            { label: "פעילים", value: activeCount, color: "#6c63ff" },
-            { label: "פגי תוקף", value: expiringSoonCount, color: expiringSoonCount > 0 ? "#f59e0b" : "#374151" },
-            { label: "סה״כ ערך", value: `₪${Math.round(totalSaved / 1000) > 0 ? (totalSaved / 1000).toFixed(1) + "k" : totalSaved}`, color: "#a855f7" },
+            { label: t("יתרה"), value: fmt(totalRemaining), color: "#10b981" },
+            { label: t("פעילים"), value: activeCount, color: "#6c63ff" },
+            { label: t("פגי תוקף"), value: expiringSoonCount, color: expiringSoonCount > 0 ? "#f59e0b" : "#374151" },
+            { label: t("סה״כ ערך"), value: `₪${Math.round(totalSaved / 1000) > 0 ? (totalSaved / 1000).toFixed(1) + "k" : totalSaved}`, color: "#a855f7" },
           ].map(({ label, value, color }) => (
             <div key={label} style={{ background: "#111827", borderRadius: 12, padding: "10px 8px", textAlign: "center", border: "1px solid #1f2937" }}>
               <div style={{ fontSize: 14, fontWeight: 800, color }}>{value}</div>
@@ -1534,7 +1553,7 @@ export default function App() {
         </div>
 
         <div style={{ position: "relative", marginBottom: 10 }}>
-          <input style={{ ...S.input, paddingRight: 40 }} placeholder="🔍 חיפוש..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+          <input style={{ ...S.input, paddingRight: 40 }} placeholder={t("🔍 חיפוש...")} value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
           {searchQuery && <button style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "#6b7280", cursor: "pointer", fontSize: 16 }} onClick={() => setSearchQuery("")}>✕</button>}
         </div>
       </div>
@@ -1543,10 +1562,10 @@ export default function App() {
       <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
         <div style={{ maxWidth: 520, margin: "0 auto", padding: "12px 16px 80px", boxSizing: "border-box" }}>
           <div style={{ display: "flex", gap: 8, marginBottom: 12, overflowX: "auto", paddingBottom: 4, touchAction: "pan-x" }}>
-            <button style={{ ...S.chipBtn, background: filterProvider === "all" ? "#6c63ff" : "#111827", flexShrink: 0 }} onClick={() => setFilterProvider("all")}>הכל ({cards.filter(c => showUsed || !c.fullyUsed).length})</button>
+            <button style={{ ...S.chipBtn, background: filterProvider === "all" ? "#6c63ff" : "#111827", flexShrink: 0 }} onClick={() => setFilterProvider("all")}>{ti("הכל ({n})", { n: cards.filter(c => showUsed || !c.fullyUsed).length })}</button>
             {PROVIDERS.filter(p => cards.some(c => c.provider === p.id)).map(p => (
               <button key={p.id} style={{ ...S.chipBtn, background: filterProvider === p.id ? p.color : "#111827", flexShrink: 0 }} onClick={() => setFilterProvider(filterProvider === p.id ? "all" : p.id)}>
-                {p.icon} {p.name}
+                {p.icon} {t(p.name)}
               </button>
             ))}
           </div>
@@ -1554,17 +1573,17 @@ export default function App() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: "#9ca3af", fontSize: 13 }}>
               <input type="checkbox" checked={showUsed} onChange={e => setShowUsed(e.target.checked)} style={{ accentColor: "#6c63ff" }} />
-              הצג שנוצלו / פגו
+              {t("הצג שנוצלו / פגו")}
             </label>
             <div style={{ position: "relative" }}>
               <button style={{ ...S.chipBtn, display: "flex", alignItems: "center", gap: 6 }} onClick={() => setShowSortMenu(v => !v)}>
-                ⇅ {SORT_OPTIONS.find(s => s.id === sortBy)?.label}
+                ⇅ {t(SORT_OPTIONS.find(s => s.id === sortBy)?.label)}
               </button>
               {showSortMenu && (
                 <div style={{ position: "absolute", left: 0, top: "110%", background: "#111827", border: "1px solid #1f2937", borderRadius: 12, padding: 8, zIndex: 100, minWidth: 150 }}>
                   {SORT_OPTIONS.map(opt => (
-                    <button key={opt.id} style={{ display: "block", width: "100%", background: sortBy === opt.id ? "#6c63ff" : "none", border: "none", color: sortBy === opt.id ? "#fff" : "#9ca3af", padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontFamily: "inherit", fontSize: 13, textAlign: "right" }} onClick={() => { setSortBy(opt.id); setShowSortMenu(false); }}>
-                      {opt.label}
+                    <button key={opt.id} style={{ display: "block", width: "100%", background: sortBy === opt.id ? "#6c63ff" : "none", border: "none", color: sortBy === opt.id ? "#fff" : "#9ca3af", padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontFamily: "inherit", fontSize: 13, textAlign: getLang() === "he" ? "right" : "left" }} onClick={() => { setSortBy(opt.id); setShowSortMenu(false); }}>
+                      {t(opt.label)}
                     </button>
                   ))}
                 </div>
@@ -1572,14 +1591,14 @@ export default function App() {
             </div>
           </div>
 
-          {loading && <div style={{ textAlign: "center", padding: 40, color: "#6b7280" }}>טוען...</div>}
+          {loading && <div style={{ textAlign: "center", padding: 40, color: "#6b7280" }}>{t("טוען...")}</div>}
 
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {!loading && filteredCards.length === 0 && (
               <div style={{ textAlign: "center", padding: "60px 20px", color: "#6b7280" }}>
                 <div style={{ fontSize: 48, marginBottom: 16 }}>🃏</div>
-                <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 8, color: "#9ca3af" }}>{searchQuery ? "לא נמצאו תוצאות" : "אין כרטיסים עדיין"}</div>
-                <div style={{ fontSize: 13 }}>לחץ + הוסף כדי להתחיל</div>
+                <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 8, color: "#9ca3af" }}>{searchQuery ? t("לא נמצאו תוצאות") : t("אין כרטיסים עדיין")}</div>
+                <div style={{ fontSize: 13 }}>{t("לחץ + הוסף כדי להתחיל")}</div>
               </div>
             )}
             {filteredCards.map(card => {
@@ -1590,7 +1609,7 @@ export default function App() {
               const expiring = isExpiringSoon(card.expiry);
               const dl = daysLeft(card.expiry);
               return (
-                <button key={card.id} style={{ background: "#111827", borderRadius: 18, padding: 0, border: `1px solid ${expiring ? "#f59e0b44" : "#1f2937"}`, cursor: "pointer", width: "100%", textAlign: "right", fontFamily: "inherit", overflow: "hidden", opacity: card.fullyUsed || expired ? 0.55 : 1 }}
+                <button key={card.id} style={{ background: "#111827", borderRadius: 18, padding: 0, border: `1px solid ${expiring ? "#f59e0b44" : "#1f2937"}`, cursor: "pointer", width: "100%", textAlign: getLang() === "he" ? "right" : "left", fontFamily: "inherit", overflow: "hidden", opacity: card.fullyUsed || expired ? 0.55 : 1 }}
                   onClick={() => { setSelectedId(card.id); setView("detail"); }}>
                   <div style={{ height: 4, background: `linear-gradient(90deg, ${cardColor}, ${cardColor}44)` }} />
                   <div style={{ padding: "16px 18px" }}>
@@ -1602,25 +1621,25 @@ export default function App() {
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                           <div style={{ fontWeight: 800, fontSize: 19, color: card.fullyUsed ? "#6b7280" : "#f3f4f6" }}>{fmt(card.remainingAmount)}</div>
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3 }}>
-                            <div style={{ fontWeight: 600, fontSize: 14, color: "#9ca3af" }}>{card.provider === "credit" && card.storeName ? card.storeName : prov.name}</div>
-                            {card.provider === "credit" && <span style={{ background: "#0ea5e922", color: "#38bdf8", padding: "2px 8px", borderRadius: 20, fontSize: 10, fontWeight: 700 }}>↩️ זיכוי</span>}
+                            <div style={{ fontWeight: 600, fontSize: 14, color: "#9ca3af" }}>{card.provider === "credit" && card.storeName ? card.storeName : t(prov.name)}</div>
+                            {card.provider === "credit" && <span style={{ background: "#0ea5e922", color: "#38bdf8", padding: "2px 8px", borderRadius: 20, fontSize: 10, fontWeight: 700 }}>{t("↩️ זיכוי")}</span>}
                           </div>
                         </div>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 3 }}>
                           <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                            {card.fullyUsed && <span style={{ background: "#1f2937", color: "#6b7280", padding: "2px 8px", borderRadius: 20, fontSize: 10 }}>נוצל במלואו</span>}
-                            {expired && !card.fullyUsed && <span style={{ background: "#ef444422", color: "#f87171", padding: "2px 8px", borderRadius: 20, fontSize: 10 }}>פג תוקף</span>}
-                            {expiring && !card.fullyUsed && <span style={{ background: "#f59e0b22", color: "#fcd34d", padding: "2px 8px", borderRadius: 20, fontSize: 10, fontWeight: 700 }}>⚠ {dl} ימים</span>}
+                            {card.fullyUsed && <span style={{ background: "#1f2937", color: "#6b7280", padding: "2px 8px", borderRadius: 20, fontSize: 10 }}>{t("נוצל במלואו")}</span>}
+                            {expired && !card.fullyUsed && <span style={{ background: "#ef444422", color: "#f87171", padding: "2px 8px", borderRadius: 20, fontSize: 10 }}>{t("פג תוקף")}</span>}
+                            {expiring && !card.fullyUsed && <span style={{ background: "#f59e0b22", color: "#fcd34d", padding: "2px 8px", borderRadius: 20, fontSize: 10, fontWeight: 700 }}>{ti("⚠ {n} ימים", { n: dl })}</span>}
                           </div>
-                          <div style={{ color: "#4b5563", fontSize: 11, fontFamily: "monospace" }}>{prov.name}</div>
+                          <div style={{ color: "#4b5563", fontSize: 11, fontFamily: "monospace" }}>{t(prov.name)}</div>
                         </div>
                         <div style={{ marginTop: 10 }}>
                           <div style={S.progressBg}>
                             <div style={{ ...S.progressFill, width: `${usedPct}%`, background: cardColor }} />
                           </div>
                           <div style={{ display: "flex", justifyContent: "space-between", marginTop: 3, color: "#4b5563", fontSize: 10 }}>
-                            <span>נוצל {usedPct}% · {(card.transactions || []).length} עסקאות</span>
-                            {card.expiry && <span>עד {fmtDate(card.expiry)}</span>}
+                            <span>{ti("נוצל {n}% · {m} עסקאות", { n: usedPct, m: (card.transactions || []).length })}</span>
+                            {card.expiry && <span>{ti("עד {date}", { date: fmtDate(card.expiry) })}</span>}
                           </div>
                         </div>
                       </div>

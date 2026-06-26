@@ -9,7 +9,6 @@ html, body {
   background: #0a0f1e;
   color: #e8eaf6;
   font-family: 'Segoe UI', 'Arial', sans-serif;
-  direction: rtl;
   overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
   /* Keep everything within the viewport: prevent horizontal expansion and let

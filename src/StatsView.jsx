@@ -1,5 +1,6 @@
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { PROVIDERS, CATEGORIES, CATEGORY_ICONS, fmt, fmtDate, isExpired, S } from "./shared";
+import { t } from "./i18n";
 
 // Lazy-loaded so recharts (the app's heaviest dependency) is only fetched when the
 // user actually opens the statistics screen.
@@ -30,15 +31,15 @@ export default function StatsView({ cards, onBack }) {
     <div style={S.page}>
       <div style={S.container}>
         <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-          <button style={S.backBtn} onClick={onBack}>→ חזרה</button>
-          <h1 style={{ ...S.title, margin: 0 }}>📊 סטטיסטיקות</h1>
+          <button style={S.backBtn} onClick={onBack}>{t("→ חזרה")}</button>
+          <h1 style={{ ...S.title, margin: 0 }}>{t("📊 סטטיסטיקות")}</h1>
         </header>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
           {[
-            { label: "סה״כ נוצל", value: fmt(totalSpent), color: "#ef4444" },
-            { label: "יתרה פעילה", value: fmt(totalRemaining), color: "#10b981" },
-            { label: "כרטיסים פעילים", value: cards.filter(c => !c.fullyUsed && !isExpired(c.expiry)).length, color: "#6c63ff" },
-            { label: "עסקאות", value: allTx.length, color: "#f59e0b" },
+            { label: t("סה״כ נוצל"), value: fmt(totalSpent), color: "#ef4444" },
+            { label: t("יתרה פעילה"), value: fmt(totalRemaining), color: "#10b981" },
+            { label: t("כרטיסים פעילים"), value: cards.filter(c => !c.fullyUsed && !isExpired(c.expiry)).length, color: "#6c63ff" },
+            { label: t("עסקאות"), value: allTx.length, color: "#f59e0b" },
           ].map(({ label, value, color }) => (
             <div key={label} style={{ background: "#111827", borderRadius: 16, padding: "16px 14px", border: "1px solid #1f2937", textAlign: "center" }}>
               <div style={{ fontSize: 22, fontWeight: 800, color }}>{value}</div>
@@ -49,7 +50,7 @@ export default function StatsView({ cards, onBack }) {
         {allTx.length > 0 && (
           <>
             <div style={S.sectionCard}>
-              <h3 style={S.sectionTitle}>שימוש לפי חודש</h3>
+              <h3 style={S.sectionTitle}>{t("שימוש לפי חודש")}</h3>
               <ResponsiveContainer width="100%" height={160}>
                 <BarChart data={last6Months} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
@@ -62,7 +63,7 @@ export default function StatsView({ cards, onBack }) {
             </div>
             {byCategory.length > 0 && (
               <div style={S.sectionCard}>
-                <h3 style={S.sectionTitle}>שימוש לפי קטגוריה</h3>
+                <h3 style={S.sectionTitle}>{t("שימוש לפי קטגוריה")}</h3>
                 <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
                   <ResponsiveContainer width={140} height={140}>
                     <PieChart>
@@ -77,7 +78,7 @@ export default function StatsView({ cards, onBack }) {
                       <div key={d.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           <div style={{ width: 10, height: 10, borderRadius: 3, background: COLORS[i % COLORS.length] }} />
-                          <span style={{ fontSize: 13, color: "#ccd6f6" }}>{CATEGORY_ICONS[d.name]} {d.name}</span>
+                          <span style={{ fontSize: 13, color: "#ccd6f6" }}>{CATEGORY_ICONS[d.name]} {t(d.name)}</span>
                         </div>
                         <span style={{ fontSize: 13, fontWeight: 700, color: "#e8eaf6" }}>{fmt(d.value)}</span>
                       </div>
@@ -88,11 +89,11 @@ export default function StatsView({ cards, onBack }) {
             )}
             {byProvider.length > 1 && (
               <div style={S.sectionCard}>
-                <h3 style={S.sectionTitle}>שימוש לפי ספק</h3>
+                <h3 style={S.sectionTitle}>{t("שימוש לפי ספק")}</h3>
                 {byProvider.map(p => (
                   <div key={p.name} style={{ marginBottom: 12 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-                      <span style={{ fontSize: 13, color: "#ccd6f6" }}>{p.name}</span>
+                      <span style={{ fontSize: 13, color: "#ccd6f6" }}>{t(p.name)}</span>
                       <span style={{ fontSize: 13, fontWeight: 700, color: "#e8eaf6" }}>{fmt(p.value)}</span>
                     </div>
                     <div style={S.progressBg}>
@@ -103,12 +104,12 @@ export default function StatsView({ cards, onBack }) {
               </div>
             )}
             <div style={S.sectionCard}>
-              <h3 style={S.sectionTitle}>עסקאות אחרונות</h3>
+              <h3 style={S.sectionTitle}>{t("עסקאות אחרונות")}</h3>
               {[...allTx].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10).map(tx => (
                 <div key={tx.id} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #1f2937" }}>
                   <div>
                     <div style={{ fontWeight: 600, fontSize: 14, color: "#ccd6f6" }}>{tx.store}</div>
-                    <div style={{ fontSize: 12, color: "#8892b0" }}>{CATEGORY_ICONS[tx.purpose]} {tx.purpose} · {fmtDate(tx.date)}</div>
+                    <div style={{ fontSize: 12, color: "#8892b0" }}>{CATEGORY_ICONS[tx.purpose]} {t(tx.purpose)} · {fmtDate(tx.date)}</div>
                   </div>
                   <div style={{ color: "#ef4444", fontWeight: 700 }}>-{fmt(tx.amount)}</div>
                 </div>
@@ -119,7 +120,7 @@ export default function StatsView({ cards, onBack }) {
         {allTx.length === 0 && (
           <div style={{ textAlign: "center", padding: 60, color: "#8892b0" }}>
             <div style={{ fontSize: 48 }}>📊</div>
-            <div style={{ marginTop: 12 }}>אין עדיין נתונים להצגה</div>
+            <div style={{ marginTop: 12 }}>{t("אין עדיין נתונים להצגה")}</div>
           </div>
         )}
       </div>
