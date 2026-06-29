@@ -1,3 +1,5 @@
+import { argon2id } from "hash-wasm";
+
 // ─── ENCRYPTION ───────────────────────────────────────────────────────────────
 // Envelope encryption (Web Crypto API, built into all modern browsers).
 //
@@ -18,6 +20,13 @@
 
 const KDF_ITERATIONS = 310000;
 const FIELD_PREFIX = "v2:";
+
+// Argon2id parameters for deriving the passphrase KEK. Argon2id is memory-hard,
+// so it resists GPU/ASIC brute-force far better than PBKDF2 — important because
+// the passphrase is the one low-entropy secret. ~19 MiB is the OWASP minimum and
+// is fast enough for an unlock on mobile. Recovery codes stay on PBKDF2 (they're
+// random ~100-bit, so memory-hardness adds nothing there).
+const ARGON2 = { memorySize: 19456, iterations: 2, parallelism: 1 };
 
 const subtle = globalThis.crypto.subtle;
 const randomBytes = (n) => globalThis.crypto.getRandomValues(new Uint8Array(n));
@@ -71,6 +80,49 @@ async function importDEK(rawBytes) {
   return subtle.importKey("raw", rawBytes, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
 }
 
+// ── Argon2id KEK + self-describing passphrase wrapping ────────────────────────
+// The passphrase-wrapped DEK is stored as "a2$<mem>$<iter>$<par>$<base64(iv+ct)>"
+// so the record carries its own KDF params. Legacy records have no "a2$" prefix
+// (PBKDF2) and are detected by its absence — they get upgraded to Argon2id the
+// next time the user unlocks. No DB schema change is needed.
+async function argon2KEK(secret, saltBytes, p = ARGON2) {
+  const raw = await argon2id({
+    password: secret,
+    salt: saltBytes,
+    memorySize: p.memorySize,
+    iterations: p.iterations,
+    parallelism: p.parallelism,
+    hashLength: 32,
+    outputType: "binary",
+  });
+  return subtle.importKey("raw", raw, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+}
+
+async function wrapPassphrase(dekRaw, passphrase) {
+  const salt = randomBytes(16);
+  const kek = await argon2KEK(passphrase, salt);
+  const ct = await aesEncrypt(kek, dekRaw);
+  return { salt: bytesToB64(salt), wrapped_dek: `a2$${ARGON2.memorySize}$${ARGON2.iterations}$${ARGON2.parallelism}$${ct}` };
+}
+
+async function unwrapPassphrase(passphrase, keyRecord) {
+  const w = keyRecord.wrapped_dek;
+  if (typeof w === "string" && w.startsWith("a2$")) {
+    const parts = w.split("$");
+    const kek = await argon2KEK(passphrase, b64ToBytes(keyRecord.salt), {
+      memorySize: +parts[1], iterations: +parts[2], parallelism: +parts[3],
+    });
+    return aesDecrypt(kek, parts.slice(4).join("$"));
+  }
+  // Legacy PBKDF2 record.
+  const kek = await deriveKEK(passphrase, b64ToBytes(keyRecord.salt), keyRecord.iterations || KDF_ITERATIONS);
+  return aesDecrypt(kek, w);
+}
+
+export function isArgon2Record(keyRecord) {
+  return typeof keyRecord?.wrapped_dek === "string" && keyRecord.wrapped_dek.startsWith("a2$");
+}
+
 // ── Vault lifecycle ───────────────────────────────────────────────────────────
 
 // Create a brand-new vault. Returns the in-memory keys plus the record to persist
@@ -78,27 +130,26 @@ async function importDEK(rawBytes) {
 // passphrase change); never send it to the server.
 export async function createVault(passphrase, recoveryCode) {
   const dekRaw = randomBytes(32);
-  const salt = randomBytes(16);
   const recoverySalt = randomBytes(16);
-  const kek = await deriveKEK(passphrase, salt);
-  const rkek = await deriveKEK(normalizeRecoveryCode(recoveryCode), recoverySalt);
+  const { salt, wrapped_dek } = await wrapPassphrase(dekRaw, passphrase); // Argon2id
+  const rkek = await deriveKEK(normalizeRecoveryCode(recoveryCode), recoverySalt); // PBKDF2 (high-entropy code)
   return {
     dek: await importDEK(dekRaw),
     dekRaw,
     keyRecord: {
-      salt: bytesToB64(salt),
-      iterations: KDF_ITERATIONS,
-      wrapped_dek: await aesEncrypt(kek, dekRaw),
+      salt,
+      iterations: KDF_ITERATIONS, // used by the recovery PBKDF2 side
+      wrapped_dek,
       recovery_salt: bytesToB64(recoverySalt),
       recovery_wrapped_dek: await aesEncrypt(rkek, dekRaw),
     },
   };
 }
 
-// Unlock with the passphrase. Throws if the passphrase is wrong.
+// Unlock with the passphrase. Throws if the passphrase is wrong. Handles both
+// Argon2id (current) and legacy PBKDF2 records.
 export async function unlockVault(passphrase, keyRecord) {
-  const kek = await deriveKEK(passphrase, b64ToBytes(keyRecord.salt), keyRecord.iterations || KDF_ITERATIONS);
-  const dekRaw = await aesDecrypt(kek, keyRecord.wrapped_dek);
+  const dekRaw = await unwrapPassphrase(passphrase, keyRecord);
   return { dek: await importDEK(dekRaw), dekRaw };
 }
 
@@ -113,13 +164,7 @@ export async function unlockWithRecovery(recoveryCode, keyRecord) {
 // Returns the passphrase-side fields to update in user_keys. The recovery copy is
 // untouched, so the existing recovery code keeps working.
 export async function rewrapPassphrase(dekRaw, newPassphrase) {
-  const salt = randomBytes(16);
-  const kek = await deriveKEK(newPassphrase, salt);
-  return {
-    salt: bytesToB64(salt),
-    iterations: KDF_ITERATIONS,
-    wrapped_dek: await aesEncrypt(kek, dekRaw),
-  };
+  return wrapPassphrase(dekRaw, newPassphrase); // { salt, wrapped_dek } using Argon2id
 }
 
 // Re-wrap the DEK under a freshly generated recovery code (used to regenerate the

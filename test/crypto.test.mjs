@@ -18,6 +18,7 @@ import {
   encryptBackup,
   decryptBackup,
   isEncryptedBackup,
+  isArgon2Record,
 } from "../src/crypto.js";
 
 let passed = 0;
@@ -187,6 +188,36 @@ await test("passphraseScore: long/varied = strong, trivial = weak", async () => 
   assert.ok(passphraseScore("aaaaaaaaaaaa") <= 1);            // repeated char
   assert.ok(passphraseScore("correct horse battery staple") >= 3); // long passphrase
   assert.equal(passphraseScore("Tr0ub4dour&3xtra"), 4);      // long + all classes
+});
+
+await test("legacy PBKDF2 record still unlocks (no lockout for existing users)", async () => {
+  const subtle = globalThis.crypto.subtle;
+  const enc = new TextEncoder();
+  const b64 = (u8) => Buffer.from(u8).toString("base64");
+  // Build a legacy vault by hand exactly like the old code did: PBKDF2 KEK, no a2$ prefix.
+  const dekRaw = crypto.getRandomValues(new Uint8Array(32));
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const base = await subtle.importKey("raw", enc.encode("legacy-pass"), { name: "PBKDF2" }, false, ["deriveKey"]);
+  const kek = await subtle.deriveKey({ name: "PBKDF2", salt, iterations: 310000, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await subtle.encrypt({ name: "AES-GCM", iv }, kek, dekRaw));
+  const combined = new Uint8Array(iv.length + ct.length); combined.set(iv); combined.set(ct, iv.length);
+  const keyRecord = { salt: b64(salt), iterations: 310000, wrapped_dek: b64(combined) };
+
+  assert.equal(isArgon2Record(keyRecord), false);
+  const { dekRaw: out } = await unlockVault("legacy-pass", keyRecord);
+  assert.equal(Buffer.from(out).toString("hex"), Buffer.from(dekRaw).toString("hex"), "legacy DEK recovered");
+  await assert.rejects(() => unlockVault("wrong", keyRecord));
+});
+
+await test("vault uses Argon2id for the passphrase, round-trips, wrong pass fails", async () => {
+  const { dek, keyRecord } = await createVault("correct horse battery", generateRecoveryCode());
+  assert.ok(keyRecord.wrapped_dek.startsWith("a2$"), "passphrase wrap should be Argon2id (a2$)");
+  assert.equal(isArgon2Record(keyRecord), true);
+  const enc = await encryptField("ARGON-CODE", dek);
+  const { dek: dek2 } = await unlockVault("correct horse battery", keyRecord);
+  assert.equal(await decryptField(enc, dek2), "ARGON-CODE");
+  await assert.rejects(() => unlockVault("wrong", keyRecord));
 });
 
 console.log(`\n${passed} passed`);

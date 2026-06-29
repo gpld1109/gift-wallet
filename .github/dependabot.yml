@@ -1,0 +1,21 @@
+version: 2
+updates:
+  # Watch npm dependencies for known vulnerabilities and updates.
+  # Dependabot opens PRs automatically; security fixes are prioritized by GitHub.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "deps"
+
+  # Keep GitHub Actions (if/when added) up to date too.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

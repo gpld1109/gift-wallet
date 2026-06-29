@@ -4,7 +4,7 @@ import {
   createVault, unlockVault, unlockWithRecovery, rewrapPassphrase, rewrapRecovery,
   encryptField, decryptAny, generateRecoveryCode,
   createPinRecord, verifyPinRecord,
-  encryptBackup, decryptBackup, isEncryptedBackup,
+  encryptBackup, decryptBackup, isEncryptedBackup, isArgon2Record,
 } from "./crypto";
 import PrivacyPolicy from "./legal/PrivacyPolicy";
 import TermsOfService from "./legal/TermsOfService";
@@ -591,7 +591,15 @@ export default function App() {
       dekRawRef.current = dekRaw;
       setDek(d);
       setVaultState("open");
-      migrateLegacyCards(d); // finish any interrupted migration in the background
+      // Silent KDF upgrade: re-wrap a legacy PBKDF2 record under Argon2id.
+      if (!isArgon2Record(keyRecord)) {
+        try {
+          const upd = await rewrapPassphrase(dekRaw, passphrase);
+          await supabase.from("user_keys").update(upd).eq("user_id", session.user.id);
+          setKeyRecord(k => ({ ...k, ...upd }));
+        } catch { /* non-fatal: stays on PBKDF2, upgrades next unlock */ }
+      }
+      migrateLegacyCards(d); // finish any interrupted card migration in the background
       return true;
     } catch {
       return false;
