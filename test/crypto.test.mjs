@@ -179,4 +179,14 @@ await test("luhnValid flags mistyped card numbers, ignores non-card codes", asyn
   assert.equal(luhnValid(""), true);
 });
 
+await test("passphraseScore: long/varied = strong, trivial = weak", async () => {
+  const { passphraseScore } = await import("../src/shared.js");
+  assert.equal(passphraseScore(""), 0);
+  assert.ok(passphraseScore("abc") <= 1);                     // too short
+  assert.ok(passphraseScore("password") <= 1);                // common
+  assert.ok(passphraseScore("aaaaaaaaaaaa") <= 1);            // repeated char
+  assert.ok(passphraseScore("correct horse battery staple") >= 3); // long passphrase
+  assert.equal(passphraseScore("Tr0ub4dour&3xtra"), 4);      // long + all classes
+});
+
 console.log(`\n${passed} passed`);

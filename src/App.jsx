@@ -10,7 +10,7 @@ import PrivacyPolicy from "./legal/PrivacyPolicy";
 import TermsOfService from "./legal/TermsOfService";
 import {
   PROVIDERS, CATEGORIES, CATEGORY_ICONS, SORT_OPTIONS,
-  fmt, fmtDate, daysLeft, isExpired, isExpiringSoon, provider, luhnValid, S,
+  fmt, fmtDate, daysLeft, isExpired, isExpiringSoon, provider, luhnValid, passphraseScore, S,
 } from "./shared";
 import { t, ti, setLang, getLang, LANGS } from "./i18n";
 
@@ -47,6 +47,25 @@ function Modal({ title, onClose, children }) {
 const vaultInput = { width: "100%", background: "#0a0f1e", border: "1px solid #1f2937", borderRadius: 12, padding: "13px 14px", color: "#e8eaf6", fontSize: 15, fontFamily: "inherit", outline: "none", boxSizing: "border-box", marginBottom: 12 };
 const vaultLabel = { display: "block", color: "#9ca3af", fontSize: 12, fontWeight: 700, marginBottom: 7 };
 const vaultBtn = (disabled) => ({ width: "100%", background: disabled ? "#374151" : "linear-gradient(135deg, #6c63ff, #a855f7)", border: "none", color: "#fff", padding: 14, borderRadius: 14, fontSize: 15, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit" });
+
+// Visual passphrase-strength meter (4 segments + label). Renders nothing until
+// the user starts typing.
+function StrengthMeter({ value }) {
+  if (!value) return null;
+  const score = passphraseScore(value);
+  const labels = ["חלשה מאוד", "חלשה", "בינונית", "טובה", "חזקה"];
+  const colors = ["#ef4444", "#ef4444", "#f59e0b", "#10b981", "#10b981"];
+  return (
+    <div style={{ marginTop: -2, marginBottom: 12 }}>
+      <div style={{ display: "flex", gap: 4 }}>
+        {[0, 1, 2, 3].map(i => (
+          <div key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: i < score ? colors[score] : "#2d3250", transition: "background 0.2s" }} />
+        ))}
+      </div>
+      <div style={{ fontSize: 11, color: colors[score], marginTop: 5 }}>{t("חוזק הסיסמה")}: {t(labels[score])}</div>
+    </div>
+  );
+}
 
 // Password field with a show/hide (eye) toggle, so the user can verify there's
 // no typo. Forwards all input props; defaults to the vault input style.
@@ -97,6 +116,7 @@ function VaultSetup({ onCreate, busy }) {
       </p>
       <label htmlFor="vault-pass" style={vaultLabel}>{t("סיסמה (לפחות 8 תווים)")}</label>
       <PasswordInput id="vault-pass" autoComplete="new-password" value={pass} onChange={e => { setPass(e.target.value); setError(""); }} dir="ltr" />
+      <StrengthMeter value={pass} />
       <label htmlFor="vault-pass2" style={vaultLabel}>{t("אימות סיסמה")}</label>
       <PasswordInput id="vault-pass2" autoComplete="new-password" value={confirm} onChange={e => { setConfirm(e.target.value); setError(""); }} onKeyDown={e => e.key === "Enter" && submit()} dir="ltr" />
       {error && <div role="alert" style={{ color: "#ef4444", fontSize: 13, marginBottom: 12 }}>{error}</div>}
@@ -165,6 +185,7 @@ function VaultUnlock({ email, onUnlock, onRecover, onSignOut }) {
         <input id="rec-code" style={{ ...vaultInput, fontFamily: "monospace", letterSpacing: 1 }} value={recovery} onChange={e => { setRecovery(e.target.value); setError(""); }} dir="ltr" placeholder="XXXXX-XXXXX-XXXXX-XXXXX" />
         <label htmlFor="rec-new" style={vaultLabel}>{t("סיסמה חדשה")}</label>
         <PasswordInput id="rec-new" autoComplete="new-password" value={newPass} onChange={e => { setNewPass(e.target.value); setError(""); }} dir="ltr" />
+        <StrengthMeter value={newPass} />
         <label htmlFor="rec-new2" style={vaultLabel}>{t("אימות סיסמה חדשה")}</label>
         <PasswordInput id="rec-new2" autoComplete="new-password" value={newPass2} onChange={e => { setNewPass2(e.target.value); setError(""); }} onKeyDown={e => e.key === "Enter" && doRecover()} dir="ltr" />
         {error && <div role="alert" style={{ color: "#ef4444", fontSize: 13, marginBottom: 12 }}>{error}</div>}
@@ -201,6 +222,7 @@ function ChangePassphraseForm({ onSave }) {
     <>
       <label htmlFor="ch-pass" style={vaultLabel}>{t("סיסמה חדשה (לפחות 8 תווים)")}</label>
       <PasswordInput id="ch-pass" autoComplete="new-password" value={pass} onChange={e => { setPass(e.target.value); setError(""); }} dir="ltr" />
+      <StrengthMeter value={pass} />
       <label htmlFor="ch-pass2" style={vaultLabel}>{t("אימות סיסמה")}</label>
       <PasswordInput id="ch-pass2" autoComplete="new-password" value={confirm} onChange={e => { setConfirm(e.target.value); setError(""); }} onKeyDown={e => e.key === "Enter" && submit()} dir="ltr" />
       {error && <div role="alert" style={{ color: "#ef4444", fontSize: 13, marginBottom: 12 }}>{error}</div>}

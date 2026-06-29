@@ -28,6 +28,23 @@ export const isExpired = (e) => e && new Date(e) < new Date();
 export const isExpiringSoon = (e) => { const d = daysLeft(e); return d !== null && d > 0 && d <= 30; };
 export const provider = (id) => PROVIDERS.find((p) => p.id === id) || PROVIDERS[PROVIDERS.length - 1];
 
+// Lightweight passphrase strength estimate (0–4) — no heavy dependency.
+// Length-weighted (so word-passphrases score well) plus a character-variety
+// bonus, with penalties for trivial/common patterns.
+export function passphraseScore(pw) {
+  pw = String(pw || "");
+  if (!pw) return 0;
+  let score = 0;
+  if (pw.length >= 8) score++;
+  if (pw.length >= 12) score++;
+  if (pw.length >= 16) score++;
+  const classes = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^a-zA-Z0-9]/].reduce((n, re) => n + (re.test(pw) ? 1 : 0), 0);
+  if (classes >= 3) score++;
+  if (/^(.)\1*$/.test(pw)) return 1;                                  // a single repeated character
+  if (/^(0123|1234|12345|abcd|qwert|password|1111|0000)/i.test(pw)) score = Math.min(score, 1);
+  return Math.max(0, Math.min(4, score));
+}
+
 // Luhn checksum — used as a soft typo check for card-number style codes
 // (e.g. Max / Dream Card VIP). Returns true (= "no problem") for anything that
 // isn't a 12–19 digit number, so non-card vouchers are never flagged. A false
