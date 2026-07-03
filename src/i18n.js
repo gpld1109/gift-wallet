@@ -375,4 +375,11 @@ const EN = {
   "{n} כרטיסים": "{n} cards",
   "לחץ לפתיחת הכרטיסים": "Tap to open the cards",
   "לחץ לסגירה": "Tap to collapse",
+
+  // ── Auto-lock ──
+  "⏱️ נעילה אוטומטית": "⏱️ Auto-lock",
+  "האפליקציה תבקש סיסמה מחדש רק אם היא הייתה ברקע יותר מהזמן הזה.": "The app will ask for the password again only if it was in the background longer than this.",
+  "דק'": "min",
+  "הפרטים יוצגו ל-60 שניות": "Details will show for 60 seconds",
+  "פרטים גלויים ל-60 שניות 🔓": "Details visible for 60 seconds 🔓",
 };

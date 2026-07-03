@@ -182,6 +182,18 @@ export async function rewrapRecovery(dekRaw) {
   };
 }
 
+// ── Session resume (short local grace period) ─────────────────────────────────
+// Lets the app re-open without re-entering the passphrase for a short, user-chosen
+// window, by keeping the raw DEK in local storage. This does NOT weaken the
+// zero-knowledge model (the DEK is still never sent to the server) — it only
+// changes how often the passphrase is asked on THIS device. The stored value is
+// cleared on lock / sign-out and expires on its own.
+export function dekToB64(dekRaw) { return bytesToB64(dekRaw); }
+export async function importDekB64(b64) {
+  const raw = b64ToBytes(b64);
+  return { dek: await importDEK(raw), dekRaw: raw };
+}
+
 // ── Field encryption (uses the unlocked DEK) ──────────────────────────────────
 
 export async function encryptField(plaintext, dek) {

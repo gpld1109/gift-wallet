@@ -5,6 +5,7 @@ import {
   encryptField, decryptAny, generateRecoveryCode,
   createPinRecord, verifyPinRecord,
   encryptBackup, decryptBackup, isEncryptedBackup, isArgon2Record,
+  dekToB64, importDekB64,
 } from "./crypto";
 import PrivacyPolicy from "./legal/PrivacyPolicy";
 import TermsOfService from "./legal/TermsOfService";
@@ -17,6 +18,18 @@ import { t, ti, setLang, getLang, LANGS } from "./i18n";
 // Stats screen is code-split: recharts (the heaviest dependency) is fetched only
 // when the user opens Stats, keeping the initial load light.
 const StatsView = lazy(() => import("./StatsView"));
+
+// Auto-lock: keep the unlocked DEK on this device for a short, user-chosen window
+// so a quick app switch (or a mobile discard-reload) doesn't demand the passphrase
+// again. Cleared on lock / sign-out; expires on its own.
+const SESSION_KEY = "gw_session";
+const AUTOLOCK_KEY = "gw_autolock_min";
+const DEFAULT_AUTOLOCK_MIN = 5;
+const AUTOLOCK_OPTIONS = [1, 5, 15, 30];
+const getAutolockMin = () => {
+  const v = parseInt(localStorage.getItem(AUTOLOCK_KEY), 10);
+  return Number.isFinite(v) && v > 0 ? v : DEFAULT_AUTOLOCK_MIN;
+};
 
 // ─── COMPONENTS ───────────────────────────────────────────────────────────────
 
@@ -512,6 +525,7 @@ export default function App() {
   const [transferModal, setTransferModal] = useState(null);   // cardId being transferred out (Premium)
   const [transferredCard, setTransferredCard] = useState(null); // card just exported → offer to delete
   const [expandedGroups, setExpandedGroups] = useState({});   // provider-bundle expand/collapse (Premium)
+  const [autolockMin, setAutolockMin] = useState(getAutolockMin); // background auto-lock window (minutes)
   const [view, setView] = useState("dashboard");
   const [selectedId, setSelectedId] = useState(null);
   const [filterProvider, setFilterProvider] = useState("all");
@@ -564,6 +578,7 @@ export default function App() {
   useEffect(() => {
     if (!session) {
       setDek(null); dekRawRef.current = null; setKeyRecord(null); setCards([]); setVaultState("loading");
+      try { localStorage.removeItem(SESSION_KEY); } catch {}
       return;
     }
     let cancelled = false;
@@ -573,8 +588,21 @@ export default function App() {
         .from("user_keys").select("*").eq("user_id", session.user.id).maybeSingle();
       if (cancelled) return;
       if (error) { showToast("שגיאה בטעינת מפתח האבטחה", "error"); return; }
-      if (!data) setVaultState("setup");
-      else { setKeyRecord(data); setVaultState("locked"); }
+      if (!data) { setVaultState("setup"); return; }
+      setKeyRecord(data);
+      // Resume a recent unlocked session (grace period) so a quick app switch or
+      // a mobile discard-reload doesn't demand the passphrase again.
+      try {
+        const s = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
+        if (s && s.dek && s.until && Date.now() < s.until) {
+          const { dek: d, dekRaw } = await importDekB64(s.dek);
+          if (cancelled) return;
+          dekRawRef.current = dekRaw; setDek(d); setVaultState("open");
+          return;
+        }
+        localStorage.removeItem(SESSION_KEY);
+      } catch { try { localStorage.removeItem(SESSION_KEY); } catch {} }
+      setVaultState("locked");
     })();
     return () => { cancelled = true; };
   }, [session]);
@@ -597,6 +625,7 @@ export default function App() {
   }, []);
 
   const changeLang = (lng) => { setLang(lng); setLangTick(x => x + 1); };
+  const changeAutolock = (min) => { setAutolockMin(min); try { localStorage.setItem(AUTOLOCK_KEY, String(min)); } catch {} };
 
   // ─── Vault: setup / unlock / recovery / key rotation ────────────────────────
 
@@ -625,6 +654,14 @@ export default function App() {
     }
   };
 
+  // Save the unlocked DEK on this device for the auto-lock window (grace period).
+  const persistSession = useCallback((dekRaw) => {
+    if (!dekRaw) return;
+    try {
+      localStorage.setItem(SESSION_KEY, JSON.stringify({ dek: dekToB64(dekRaw), until: Date.now() + getAutolockMin() * 60000 }));
+    } catch {}
+  }, []);
+
   const handleCreateVault = async (passphrase) => {
     setVaultBusy(true);
     try {
@@ -633,6 +670,7 @@ export default function App() {
       const { error } = await supabase.from("user_keys").insert({ user_id: session.user.id, ...rec });
       if (error) { showToast("שגיאה בשמירת המפתח", "error"); setVaultBusy(false); return; }
       dekRawRef.current = dekRaw;
+      persistSession(dekRaw);
       setKeyRecord({ user_id: session.user.id, ...rec });
       setDek(newDek);
       await migrateLegacyCards(newDek);
@@ -647,6 +685,7 @@ export default function App() {
     try {
       const { dek: d, dekRaw } = await unlockVault(passphrase, keyRecord);
       dekRawRef.current = dekRaw;
+      persistSession(dekRaw);
       setDek(d);
       setVaultState("open");
       // Silent KDF upgrade: re-wrap a legacy PBKDF2 record under Argon2id.
@@ -671,6 +710,7 @@ export default function App() {
       const { error } = await supabase.from("user_keys").update(upd).eq("user_id", session.user.id);
       if (error) { showToast("שגיאה בעדכון הסיסמה", "error"); return false; }
       dekRawRef.current = dekRaw;
+      persistSession(dekRaw);
       setKeyRecord({ ...keyRecord, ...upd });
       setDek(d);
       setVaultState("open");
@@ -708,21 +748,28 @@ export default function App() {
     setRevealedCards({});
     setCards([]);
     setVaultState("locked");
+    try { localStorage.removeItem(SESSION_KEY); } catch {}
   }, []);
 
-  // Auto-lock: if the app sits in the background for more than 60s, require the
-  // passphrase again on return. (A full reload already requires it — the DEK is
-  // never persisted.) The short grace avoids re-locking on quick app switches.
+  // Auto-lock: the grace window (persisted in SESSION_KEY) counts from the moment
+  // the app goes to the background. On return — or on a reload/discard, handled by
+  // the vault-load effect — we lock only if that window has elapsed. This makes a
+  // quick switch seamless while still locking after the user's chosen idle time.
   useEffect(() => {
     if (vaultState !== "open") return;
-    let hiddenAt = 0;
     const onVisibility = () => {
-      if (document.hidden) hiddenAt = Date.now();
-      else if (hiddenAt && Date.now() - hiddenAt > 60000) lockVault();
+      if (document.hidden) {
+        persistSession(dekRawRef.current); // (re)start the window from now
+      } else {
+        try {
+          const s = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
+          if (!s || !s.until || Date.now() > s.until) lockVault();
+        } catch { lockVault(); }
+      }
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => document.removeEventListener("visibilitychange", onVisibility);
-  }, [vaultState, lockVault]);
+  }, [vaultState, lockVault, persistSession]);
 
   // ─── DB Operations ─────────────────────────────────────────────────────────
 
@@ -938,13 +985,13 @@ export default function App() {
   const doReveal = (cardId, card) => {
     setRevealedCards(prev => ({
       ...prev,
-      [cardId]: { code: card.code, cvv: card.cvv, image: card.image, expiresAt: Date.now() + 30000 }
+      [cardId]: { code: card.code, cvv: card.cvv, image: card.image, expiresAt: Date.now() + 60000 }
     }));
     setTimeout(() => {
       setRevealedCards(prev => { const next = { ...prev }; delete next[cardId]; return next; });
       showToast("הפרטים הוסתרו אוטומטית 🔒");
-    }, 30000);
-    showToast("פרטים גלויים ל-30 שניות 🔓");
+    }, 60000);
+    showToast("פרטים גלויים ל-60 שניות 🔓");
   };
 
   // ── Copy to clipboard ──
@@ -1220,6 +1267,22 @@ export default function App() {
               ) : (
                 <button style={S.outlineBtn} onClick={() => setPinSetModal("set")}>{t("🔢 הגדר קוד חשיפה (PIN)")}</button>
               )}
+            </div>
+          </div>
+
+          <div style={S.sectionCard}>
+            <h3 style={S.sectionTitle}>{t("⏱️ נעילה אוטומטית")}</h3>
+            <div style={{ color: "#9ca3af", fontSize: 13, marginBottom: 12, lineHeight: 1.6 }}>{t("האפליקציה תבקש סיסמה מחדש רק אם היא הייתה ברקע יותר מהזמן הזה.")}</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {AUTOLOCK_OPTIONS.map(m => (
+                <button key={m} onClick={() => changeAutolock(m)}
+                  style={{ flex: 1, padding: "10px 6px", borderRadius: 12, cursor: "pointer", fontFamily: "inherit", fontWeight: 700, fontSize: 13,
+                    border: autolockMin === m ? "1px solid #6c63ff" : "1px solid #1f2937",
+                    background: autolockMin === m ? "#6c63ff" : "none",
+                    color: autolockMin === m ? "#fff" : "#9ca3af" }}>
+                  {m} {t("דק'")}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -1654,7 +1717,7 @@ export default function App() {
             <RevealPinPad
               mode="verify"
               title={t("הכנס קוד חשיפה")}
-              subtitle={t("הפרטים יוצגו ל-30 שניות")}
+              subtitle={t("הפרטים יוצגו ל-60 שניות")}
               onVerify={async (pin) => {
                 const ok = await verifyPinRecord(pin, revealPinRecord);
                 if (ok) {
