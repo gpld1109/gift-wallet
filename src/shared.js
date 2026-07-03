@@ -67,6 +67,29 @@ export function luhnValid(input) {
   return sum % 10 === 0;
 }
 
+// Card-number display helpers for the credit-card face.
+// formatCardNumber: groups a 12–19 digit number in 4s (like a credit card);
+// leaves non-numeric gift codes (e.g. GIFT-1234-ABCD) as-is.
+export function formatCardNumber(code) {
+  const s = String(code || "");
+  const digits = s.replace(/\D/g, "");
+  if (digits.length >= 12 && digits.length <= 19 && /^[\s-]*[\d\s-]+$/.test(s)) {
+    return digits.replace(/(.{4})/g, "$1 ").trim();
+  }
+  return s;
+}
+// maskCardNumber: hides everything but the last 4 chars/digits.
+export function maskCardNumber(code) {
+  const s = String(code || "");
+  if (!s) return "";
+  const digits = s.replace(/\D/g, "");
+  if (digits.length >= 12 && digits.length <= 19) {
+    const groups = Math.ceil(digits.length / 4);
+    return Array(Math.max(0, groups - 1)).fill("••••").join(" ") + " " + digits.slice(-4);
+  }
+  return s.length <= 4 ? "••••" : "•••• " + s.slice(-4);
+}
+
 export const S = {
   page: { minHeight: "100vh", background: "#0a0f1e", color: "#e8eaf6", fontFamily: "'Segoe UI', 'Arial', sans-serif" },
   container: { maxWidth: 520, margin: "0 auto", padding: "20px 16px 110px" },

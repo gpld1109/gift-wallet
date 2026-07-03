@@ -11,7 +11,8 @@ import PrivacyPolicy from "./legal/PrivacyPolicy";
 import TermsOfService from "./legal/TermsOfService";
 import {
   PROVIDERS, CATEGORIES, CATEGORY_ICONS, SORT_OPTIONS, FREE_CARD_LIMIT,
-  fmt, fmtDate, daysLeft, isExpired, isExpiringSoon, provider, luhnValid, passphraseScore, S,
+  fmt, fmtDate, daysLeft, isExpired, isExpiringSoon, provider, luhnValid, passphraseScore,
+  formatCardNumber, maskCardNumber, S,
 } from "./shared";
 import { t, ti, setLang, getLang, LANGS } from "./i18n";
 
@@ -1610,40 +1611,83 @@ export default function App() {
             </div>
           </header>
 
-          <div style={{ background: `linear-gradient(135deg, ${cardColor}ee, ${cardColor}66)`, borderRadius: 24, padding: 24, color: "#fff", marginBottom: 14 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div>
-                <div style={{ fontSize: 30 }}>{prov.icon}</div>
-                <div style={{ fontSize: 20, fontWeight: 800, marginTop: 6 }}>{selectedCard.provider === "credit" && selectedCard.storeName ? selectedCard.storeName : t(prov.name)}</div>
-                {selectedCard.provider === "credit" && <div style={{ background: "#ffffff33", display: "inline-block", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, marginTop: 4 }}>{t("↩️ זיכוי חנות")}</div>}
-                <div style={{ opacity: 0.75, fontSize: 13, fontFamily: "monospace", marginTop: 4 }}>
-                  {revealedCards[selectedCard.id] ? selectedCard.code : "•••• •••• ••••"}
+          {/* Credit-card face. The number/CVV are masked until the reveal gate is passed. */}
+          <div style={{ position: "relative", background: `linear-gradient(135deg, ${cardColor}, ${cardColor}aa)`, borderRadius: 18, padding: "20px 22px", color: "#fff", marginBottom: 12, minHeight: 190, boxShadow: "0 10px 30px #0007", overflow: "hidden", opacity: selectedCard.fullyUsed || expired ? 0.75 : 1 }}>
+            <div style={{ position: "absolute", top: -50, insetInlineEnd: -30, width: 170, height: 170, background: "#ffffff22", borderRadius: "50%" }} />
+            {/* top: provider name + LOGO SLOT (swap the icon for a provider logo <img> when available) + reveal */}
+            <div style={{ position: "relative", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 26 }}>{prov.icon}</span>
+                  <span style={{ fontSize: 16, fontWeight: 800 }}>{selectedCard.provider === "credit" && selectedCard.storeName ? selectedCard.storeName : t(prov.name)}</span>
                 </div>
+                {selectedCard.provider === "credit" && <div style={{ background: "#ffffff33", display: "inline-block", padding: "2px 9px", borderRadius: 20, fontSize: 10, fontWeight: 700, marginTop: 6 }}>{t("↩️ זיכוי חנות")}</div>}
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
-                {selectedCard.fullyUsed && <span style={{ background: "#ffffff33", padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700 }}>{t("נוצל במלואו")}</span>}
-                {expired && !selectedCard.fullyUsed && <span style={{ background: "#ef444433", color: "#fca5a5", padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700 }}>{t("פג תוקף")}</span>}
-                {isExpiringSoon(selectedCard.expiry) && !selectedCard.fullyUsed && <span style={{ background: "#f59e0b33", color: "#fcd34d", padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700 }}>{ti("⚠ {n} ימים!", { n: dl })}</span>}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end", flexShrink: 0 }}>
+                {revealedCards[selectedCard.id]
+                  ? <span style={{ background: "#10b98155", padding: "3px 10px", borderRadius: 20, fontSize: 10, fontWeight: 700 }}>{t("🔓 גלוי")}</span>
+                  : <button onClick={() => revealSensitiveData(selectedCard)} style={{ background: "#00000033", border: "1px solid #ffffff55", color: "#fff", padding: "5px 13px", borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{t("👁 הצג")}</button>}
+                {selectedCard.fullyUsed && <span style={{ background: "#ffffff33", padding: "3px 10px", borderRadius: 20, fontSize: 10, fontWeight: 700 }}>{t("נוצל במלואו")}</span>}
+                {expired && !selectedCard.fullyUsed && <span style={{ background: "#ef444455", color: "#fff", padding: "3px 10px", borderRadius: 20, fontSize: 10, fontWeight: 700 }}>{t("פג תוקף")}</span>}
+                {isExpiringSoon(selectedCard.expiry) && !selectedCard.fullyUsed && <span style={{ background: "#f59e0b66", color: "#fff", padding: "3px 10px", borderRadius: 20, fontSize: 10, fontWeight: 700 }}>{ti("⚠ {n} ימים!", { n: dl })}</span>}
               </div>
             </div>
-            <div style={{ marginTop: 20 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, opacity: 0.8, fontSize: 13 }}>
-                <span>{ti("נוצל {n}%", { n: usedPct })}</span>
-                <span>{t("תוקף: ")}{fmtDate(selectedCard.expiry)}</span>
+
+            {/* center: the card number, credit-card style */}
+            <div style={{ position: "relative", marginTop: 22, direction: "ltr", textAlign: "left" }}>
+              <div style={{ fontFamily: "monospace", fontSize: 21, fontWeight: 700, letterSpacing: 3, wordBreak: "break-all" }}>
+                {selectedCard.code ? (revealedCards[selectedCard.id] ? formatCardNumber(selectedCard.code) : maskCardNumber(selectedCard.code)) : t("ללא קוד")}
               </div>
-              <div style={{ ...S.progressBg, background: "#ffffff22" }}>
-                <div style={{ ...S.progressFill, width: `${usedPct}%`, background: "#ffffff" }} />
+              {revealedCards[selectedCard.id] && selectedCard.code && (
+                <button onClick={() => copyText(selectedCard.code)} style={{ marginTop: 10, background: "#00000033", border: "1px solid #ffffff55", color: "#fff", padding: "4px 12px", borderRadius: 18, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{t("📋 העתק קוד")}</button>
+              )}
+            </div>
+
+            {/* bottom: cardholder / expiry / CVV */}
+            <div style={{ position: "relative", marginTop: 18, display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, direction: "ltr" }}>
+              <div style={{ minWidth: 0 }}>
+                {selectedCard.cardHolder && (
+                  <>
+                    <div style={{ opacity: 0.7, fontSize: 9, textTransform: "uppercase", letterSpacing: 1 }}>{t("שם בעל הכרטיס")}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{selectedCard.cardHolder}</div>
+                  </>
+                )}
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 14 }}>
-                <div>
-                  <div style={{ fontSize: 34, fontWeight: 800 }}>{fmt(selectedCard.remainingAmount)}</div>
-                  <div style={{ opacity: 0.7, fontSize: 12 }}>{t("מתוך ")}{fmt(selectedCard.originalAmount)}</div>
-                </div>
-                <div style={{ textAlign: "left" }}>
-                  <div style={{ opacity: 0.7, fontSize: 12 }}>{t("נוצל")}</div>
-                  <div style={{ fontSize: 20, fontWeight: 700 }}>{fmt(selectedCard.originalAmount - selectedCard.remainingAmount)}</div>
-                </div>
+              <div style={{ display: "flex", gap: 18, flexShrink: 0 }}>
+                {selectedCard.expiry && (
+                  <div>
+                    <div style={{ opacity: 0.7, fontSize: 9, textTransform: "uppercase", letterSpacing: 1 }}>{t("תוקף")}</div>
+                    <div style={{ fontFamily: "monospace", fontSize: 14, fontWeight: 700 }}>{selectedCard.expiry.slice(5, 7)}/{selectedCard.expiry.slice(2, 4)}</div>
+                  </div>
+                )}
+                {selectedCard.cvv && (
+                  <div>
+                    <div style={{ opacity: 0.7, fontSize: 9, textTransform: "uppercase", letterSpacing: 1 }}>CVV</div>
+                    <div style={{ fontFamily: "monospace", fontSize: 14, fontWeight: 700 }}>{revealedCards[selectedCard.id] ? selectedCard.cvv : "•••"}</div>
+                  </div>
+                )}
               </div>
+            </div>
+          </div>
+
+          {/* Balance / usage (moved out of the card face) */}
+          <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: 16, padding: 18, marginBottom: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 12 }}>
+              <div>
+                <div style={{ fontSize: 30, fontWeight: 800, color: "#f3f4f6" }}>{fmt(selectedCard.remainingAmount)}</div>
+                <div style={{ color: "#6b7280", fontSize: 12 }}>{t("מתוך ")}{fmt(selectedCard.originalAmount)}</div>
+              </div>
+              <div style={{ textAlign: "left" }}>
+                <div style={{ color: "#6b7280", fontSize: 12 }}>{t("נוצל")}</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: "#e8eaf6" }}>{fmt(selectedCard.originalAmount - selectedCard.remainingAmount)}</div>
+              </div>
+            </div>
+            <div style={S.progressBg}>
+              <div style={{ ...S.progressFill, width: `${usedPct}%`, background: cardColor }} />
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, color: "#6b7280", fontSize: 11 }}>
+              <span>{ti("נוצל {n}%", { n: usedPct })}</span>
+              {selectedCard.expiry && <span>{t("תוקף: ")}{fmtDate(selectedCard.expiry)}</span>}
             </div>
           </div>
 
@@ -1670,46 +1714,6 @@ export default function App() {
               )}
             </>
           )}
-
-          {/* Sensitive data: Code + CVV */}
-          <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: 16, padding: 16, marginBottom: 12 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <span style={{ color: "#6b7280", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>{t("פרטים מוגנים")}</span>
-              {revealedCards[selectedCard.id] ? (
-                <span style={{ color: "#10b981", fontSize: 11, fontWeight: 600 }}>{t("🔓 גלוי — נסתר בקרוב")}</span>
-              ) : (
-                <button style={{ background: "linear-gradient(135deg, #6c63ff, #a855f7)", border: "none", color: "#fff", padding: "6px 14px", borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }} onClick={() => revealSensitiveData(selectedCard)}>
-                  {t("👁 הצג")}
-                </button>
-              )}
-            </div>
-
-            <div style={{ display: "flex", gap: 12 }}>
-              <div style={{ flex: 2, minWidth: 0 }}>
-                <div style={{ color: "#6b7280", fontSize: 11, marginBottom: 4 }}>{t("קוד כרטיס")}</div>
-                <div style={{ fontFamily: "monospace", fontSize: 15, color: "#e8eaf6", letterSpacing: 2, overflowWrap: "anywhere" }}>
-                  {revealedCards[selectedCard.id] ? selectedCard.code : "•••• •••• ••••"}
-                </div>
-                {revealedCards[selectedCard.id] && selectedCard.code && (
-                  <button onClick={() => copyText(selectedCard.code)} style={{ marginTop: 8, background: "#1e2235", border: "1px solid #2d3250", color: "#a8b2d8", padding: "5px 12px", borderRadius: 18, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{t("📋 העתק קוד")}</button>
-                )}
-              </div>
-              {selectedCard.cvv && (
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ color: "#6b7280", fontSize: 11, marginBottom: 4 }}>CVV</div>
-                  <div style={{ fontFamily: "monospace", fontSize: 15, color: "#e8eaf6", letterSpacing: 2 }}>
-                    {revealedCards[selectedCard.id] ? selectedCard.cvv : "•••"}
-                  </div>
-                </div>
-              )}
-            </div>
-            {selectedCard.cardHolder && (
-              <div style={{ marginTop: 10 }}>
-                <div style={{ color: "#6b7280", fontSize: 11, marginBottom: 4 }}>{t("שם בעל הכרטיס")}</div>
-                <div style={{ fontSize: 14, color: "#e8eaf6" }}>{selectedCard.cardHolder}</div>
-              </div>
-            )}
-          </div>
 
           {selectedCard.notes && <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: 12, padding: "12px 16px", fontSize: 14, color: "#a8b2d8", marginBottom: 12 }}>📝 {selectedCard.notes}</div>}
 

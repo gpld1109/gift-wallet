@@ -266,6 +266,8 @@ const EN = {
   "🔍 לחץ להגדלה": "🔍 Tap to enlarge",
   "פרטים מוגנים": "Protected details",
   "🔓 גלוי — נסתר בקרוב": "🔓 Visible — hiding soon",
+  "🔓 גלוי": "🔓 Visible",
+  "תוקף": "Expiry",
   "קוד כרטיס": "Card code",
   "נוצל": "Used",
   "מתוך ": "of ",
