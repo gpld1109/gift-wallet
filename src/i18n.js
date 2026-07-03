@@ -177,6 +177,7 @@ const EN = {
   "📊 נתונים": "📊 Data",
   "סה״כ כרטיסים": "Total cards",
   "סה״כ עסקאות": "Total transactions",
+  "גרסה": "Version",
   "שנה סיסמת הצפנה": "Change encryption password",
   "צור קוד שחזור חדש": "Generate a new recovery code",
   "יצירת קוד שחזור חדש ": "Generating a new recovery code ",

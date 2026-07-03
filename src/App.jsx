@@ -1365,6 +1365,10 @@ export default function App() {
               <span>{t("סה״כ עסקאות")}</span><span style={{ fontWeight: 700 }}>{cards.flatMap(c => c.transactions || []).length}</span>
             </div>
           </div>
+
+          <div style={{ textAlign: "center", color: "#4b5563", fontSize: 11, marginTop: 6 }}>
+            {t("גרסה")} {__APP_VERSION__} · {__BUILD_DATE__}
+          </div>
         </div>
 
         {securityModal === "change" && (
