@@ -1794,14 +1794,14 @@ export default function App() {
       {/* STICKY HEADER */}
       <div style={{ position: "sticky", top: 0, zIndex: 50, background: "#0a0f1e", borderBottom: "1px solid #1f2937", padding: "16px 16px 12px", maxWidth: 520, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <h1 style={{ ...S.title, marginBottom: 2, fontSize: 22 }}>{t("🎁 ארנק הטבות")}</h1>
+          <div style={{ minWidth: 0 }}>
+            <h1 style={{ ...S.title, marginBottom: 2, fontSize: 22 }}>{t("🎁 ארנק הטבות")}</h1>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ color: "#6b7280", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{session.user.email}</div>
               {isPremium && (
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "linear-gradient(135deg, #f7d774, #d4af37)", color: "#3a2c00", fontSize: 10, fontWeight: 800, padding: "3px 9px", borderRadius: 20, letterSpacing: 0.8, boxShadow: "0 2px 10px #d4af3755" }}>✨ PREMIUM</span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "linear-gradient(135deg, #f7d774, #d4af37)", color: "#3a2c00", fontSize: 9, fontWeight: 800, padding: "2px 7px", borderRadius: 20, letterSpacing: 0.6, boxShadow: "0 2px 8px #d4af3744", whiteSpace: "nowrap", flexShrink: 0 }}>✨ PREMIUM</span>
               )}
             </div>
-            <div style={{ color: "#6b7280", fontSize: 11 }}>{session.user.email}</div>
           </div>
           <div style={{ display: "flex", gap: 10 }}>
             <button style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer" }} onClick={() => setView("stats")}>📊</button>
