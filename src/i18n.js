@@ -342,4 +342,21 @@ const EN = {
   "סכום גבוה": "Highest amount",
   "חדש ביותר": "Newest",
   "שם ספק": "Provider name",
+
+  // ── Plan / Premium ──
+  "⭐ תוכנית": "⭐ Plan",
+  "✓ אתה מנוי Premium — כל הפיצ'רים פתוחים": "✓ You're a Premium member — all features unlocked",
+  "תוכנית חינמית · עד {n} כרטיסים": "Free plan · up to {n} cards",
+  "✨ שדרג ל-Premium": "✨ Upgrade to Premium",
+  "שדרג ל-Premium ✨": "Upgrade to Premium ✨",
+  "בתוכנית החינמית אפשר לשמור עד 2 כרטיסים. שדרג ל-Premium וקבל:": "The free plan lets you keep up to 2 cards. Upgrade to Premium and get:",
+  "כרטיסים ללא הגבלה": "Unlimited cards",
+  "התראות לפני פקיעת תוקף": "Expiry reminders",
+  "העברת כרטיס מוצפן לארנק אחר": "Encrypted card transfer to another wallet",
+  "איגוד כרטיסים מאותו ספק": "Group cards by provider",
+  "תצוגת כרטיס אשראי עם לוגו": "Credit-card view with logo",
+  "חודש": "month",
+  "שנה": "year",
+  "הבנתי": "Got it",
+  "התשלום ייפתח בקרוב": "Payments coming soon",
 };

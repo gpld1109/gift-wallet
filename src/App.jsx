@@ -9,7 +9,7 @@ import {
 import PrivacyPolicy from "./legal/PrivacyPolicy";
 import TermsOfService from "./legal/TermsOfService";
 import {
-  PROVIDERS, CATEGORIES, CATEGORY_ICONS, SORT_OPTIONS,
+  PROVIDERS, CATEGORIES, CATEGORY_ICONS, SORT_OPTIONS, FREE_CARD_LIMIT,
   fmt, fmtDate, daysLeft, isExpired, isExpiringSoon, provider, luhnValid, passphraseScore, S,
 } from "./shared";
 import { t, ti, setLang, getLang, LANGS } from "./i18n";
@@ -335,6 +335,42 @@ function BackupPasswordForm({ mode, onSubmit }) {
   );
 }
 
+// ─── PAYWALL ──────────────────────────────────────────────────────────────────
+// Shown when a Free user hits the card limit or taps "Upgrade". Payment is not
+// wired yet — the CTA is informational for now (plan is granted server-side).
+function Paywall({ onClose }) {
+  const feats = [
+    ["♾️", "כרטיסים ללא הגבלה"],
+    ["🔔", "התראות לפני פקיעת תוקף"],
+    ["📤", "העברת כרטיס מוצפן לארנק אחר"],
+    ["🗂️", "איגוד כרטיסים מאותו ספק"],
+    ["💳", "תצוגת כרטיס אשראי עם לוגו"],
+  ];
+  return (
+    <Modal title={t("שדרג ל-Premium ✨")} onClose={onClose}>
+      <p style={{ color: "#8892b0", fontSize: 14, lineHeight: 1.6, marginTop: 0, marginBottom: 18 }}>
+        {t("בתוכנית החינמית אפשר לשמור עד 2 כרטיסים. שדרג ל-Premium וקבל:")}
+      </p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
+        {feats.map(([icon, label]) => (
+          <div key={label} style={{ display: "flex", alignItems: "center", gap: 12, color: "#ccd6f6", fontSize: 15 }}>
+            <span style={{ fontSize: 20 }}>{icon}</span>{t(label)}
+          </div>
+        ))}
+      </div>
+      <div style={{ background: "#0a0f1e", border: "1px solid #1f2937", borderRadius: 12, padding: 14, textAlign: "center", marginBottom: 16 }}>
+        <span style={{ color: "#e8eaf6", fontSize: 16, fontWeight: 800 }}>₪15</span>
+        <span style={{ fontSize: 12, color: "#8892b0" }}>/{t("חודש")}</span>
+        <span style={{ color: "#4b5563", margin: "0 10px" }}>·</span>
+        <span style={{ color: "#e8eaf6", fontSize: 16, fontWeight: 800 }}>₪99</span>
+        <span style={{ fontSize: 12, color: "#8892b0" }}>/{t("שנה")}</span>
+      </div>
+      <button style={vaultBtn(false)} onClick={onClose}>{t("הבנתי")}</button>
+      <p style={{ color: "#4b5563", fontSize: 11, textAlign: "center", marginTop: 12, marginBottom: 0 }}>{t("התשלום ייפתח בקרוב")}</p>
+    </Modal>
+  );
+}
+
 // ─── AUTH SCREEN ──────────────────────────────────────────────────────────────
 
 function AuthScreen() {
@@ -471,6 +507,8 @@ export default function App() {
   const [pendingImport, setPendingImport] = useState(null);   // parsed encrypted backup awaiting password
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [isPremium, setIsPremium] = useState(false); // plan gating (from profiles)
+  const [paywallModal, setPaywallModal] = useState(false);
   const [view, setView] = useState("dashboard");
   const [selectedId, setSelectedId] = useState(null);
   const [filterProvider, setFilterProvider] = useState("all");
@@ -501,6 +539,23 @@ export default function App() {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // ── Load the user's plan (Free / Premium). Absent row or missing table → Free. ──
+  useEffect(() => {
+    if (!session) { setIsPremium(false); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("profiles").select("plan, premium_until").eq("user_id", session.user.id).maybeSingle();
+        if (cancelled) return;
+        const premium = !!data && (data.plan === "premium" ||
+          (data.premium_until && new Date(data.premium_until) > new Date()));
+        setIsPremium(!!premium);
+      } catch { if (!cancelled) setIsPremium(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [session]);
 
   // ── Load the vault key record; decide whether the user needs setup or unlock ──
   useEffect(() => {
@@ -705,6 +760,16 @@ export default function App() {
 
   const selectedCard = cards.find(c => c.id === selectedId);
 
+  // Free users are capped at FREE_CARD_LIMIT cards (also enforced by a DB trigger).
+  const atCardLimit = !isPremium && cards.length >= FREE_CARD_LIMIT;
+  const emptyForm = { provider: "buyme", code: "", originalAmount: "", expiry: "", expiryDisplay: "", notes: "", image: null, color: "", storeName: "", cvv: "", cardHolder: "" };
+  const startAddCard = () => {
+    if (atCardLimit) { setPaywallModal(true); return; }
+    setEditingCard(null);
+    setForm(emptyForm);
+    setView("add");
+  };
+
   // ── Add / Edit card ──
   const addCard = async () => {
     const needsCode = form.provider !== "credit";
@@ -732,6 +797,7 @@ export default function App() {
       if (error) return showToast("שגיאה בעדכון", "error");
       showToast("כרטיס עודכן ✓");
     } else {
+      if (atCardLimit) { setView("dashboard"); setPaywallModal(true); return; }
       const { error } = await supabase.from("cards").insert({
         user_id: session.user.id, provider: form.provider,
         code: await encryptField(form.code.trim(), dek),
@@ -742,7 +808,11 @@ export default function App() {
         image: await encryptField(form.image || null, dek), color: form.color || null,
         store_name: await encryptField(form.storeName || null, dek),
       });
-      if (error) return showToast("שגיאה בהוספה", "error");
+      if (error) {
+        // Defense in depth: the DB trigger also blocks a 3rd card on the free plan.
+        if (String(error.message || "").includes("FREE_CARD_LIMIT")) { setView("dashboard"); setPaywallModal(true); return; }
+        return showToast("שגיאה בהוספה", "error");
+      }
       showToast("כרטיס נוסף! 🎉");
     }
 
@@ -1062,6 +1132,18 @@ export default function App() {
           </header>
 
           <div style={S.sectionCard}>
+            <h3 style={S.sectionTitle}>{t("⭐ תוכנית")}</h3>
+            {isPremium ? (
+              <div style={{ color: "#10b981", fontSize: 14 }}>{t("✓ אתה מנוי Premium — כל הפיצ'רים פתוחים")}</div>
+            ) : (
+              <>
+                <div style={{ color: "#9ca3af", fontSize: 14, marginBottom: 12 }}>{ti("תוכנית חינמית · עד {n} כרטיסים", { n: FREE_CARD_LIMIT })}</div>
+                <button style={S.primaryBtn} onClick={() => setPaywallModal(true)}>{t("✨ שדרג ל-Premium")}</button>
+              </>
+            )}
+          </div>
+
+          <div style={S.sectionCard}>
             <h3 style={S.sectionTitle}>{t("🌐 שפה")}</h3>
             <div style={{ display: "flex", gap: 10 }}>
               {Object.entries(LANGS).map(([code, label]) => (
@@ -1188,6 +1270,8 @@ export default function App() {
             <BackupPasswordForm mode="import" onSubmit={doImport} />
           </Modal>
         )}
+
+        {paywallModal && <Paywall onClose={() => setPaywallModal(false)} />}
 
         {toast && <Toast toast={toast} />}
       </div>
@@ -1584,7 +1668,7 @@ export default function App() {
           <div style={{ display: "flex", gap: 10 }}>
             <button style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer" }} onClick={() => setView("stats")}>📊</button>
             <button style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer" }} onClick={() => setView("settings")}>⚙️</button>
-            <button style={S.addBtn} onClick={() => { setEditingCard(null); setForm({ provider: "buyme", code: "", originalAmount: "", expiry: "", expiryDisplay: "", notes: "", image: null, color: "", storeName: "", cvv: "", cardHolder: "" }); setView("add"); }}>{t("+ הוסף")}</button>
+            <button style={S.addBtn} onClick={startAddCard}>{t("+ הוסף")}</button>
           </div>
         </div>
 
@@ -1701,6 +1785,7 @@ export default function App() {
           </div>
         </div>
       </div>
+      {paywallModal && <Paywall onClose={() => setPaywallModal(false)} />}
       {toast && <Toast toast={toast} />}
     </div>
   );

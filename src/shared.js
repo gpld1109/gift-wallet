@@ -21,6 +21,10 @@ export const SORT_OPTIONS = [
   { id: "name", label: "שם ספק" },
 ];
 
+// Free-plan card limit (Premium = unlimited). Enforced both in the UI and in the
+// database (0002_premium_plan.sql trigger), so it can't be bypassed from the client.
+export const FREE_CARD_LIMIT = 2;
+
 export const fmt = (n) => `₪${Number(n).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 export const fmtDate = (d) => d ? new Date(d).toLocaleDateString("he-IL") : "—";
 export const daysLeft = (expiry) => { if (!expiry) return null; return Math.ceil((new Date(expiry) - new Date()) / 86400000); };
