@@ -79,7 +79,7 @@ create or replace view public.agg_overview
 
 create or replace view public.agg_events_daily
   with (security_invoker = on) as
-  select date_trunc('day', created_at)::date as day,
+  select date_trunc('day', created_at)::date as "day",
          event,
          count(*)                            as events,
          count(distinct user_id)             as users
