@@ -382,4 +382,9 @@ const EN = {
   "דק'": "min",
   "הפרטים יוצגו ל-60 שניות": "Details will show for 60 seconds",
   "פרטים גלויים ל-60 שניות 🔓": "Details visible for 60 seconds 🔓",
+
+  // ── Analytics opt-out ──
+  "📈 שיפור המוצר": "📈 Product improvement",
+  "שיתוף נתוני שימוש אנונימיים לשיפור האפליקציה": "Share anonymous usage data to improve the app",
+  "נאסף רק שימוש כללי (מסכים ופעולות) — לעולם לא הקודים, הסכומים או תוכן הכרטיסים.": "Only general usage (screens & actions) is collected — never your codes, amounts, or card contents.",
 };

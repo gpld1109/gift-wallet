@@ -526,6 +526,7 @@ export default function App() {
   const [transferredCard, setTransferredCard] = useState(null); // card just exported → offer to delete
   const [expandedGroups, setExpandedGroups] = useState({});   // provider-bundle expand/collapse (Premium)
   const [autolockMin, setAutolockMin] = useState(getAutolockMin); // background auto-lock window (minutes)
+  const [analyticsOff, setAnalyticsOff] = useState(() => { try { return localStorage.getItem("gw_analytics_off") === "1"; } catch { return false; } });
   const [view, setView] = useState("dashboard");
   const [selectedId, setSelectedId] = useState(null);
   const [filterProvider, setFilterProvider] = useState("all");
@@ -624,8 +625,28 @@ export default function App() {
     setTimeout(() => setToast(null), 3500);
   }, []);
 
-  const changeLang = (lng) => { setLang(lng); setLangTick(x => x + 1); };
   const changeAutolock = (min) => { setAutolockMin(min); try { localStorage.setItem(AUTOLOCK_KEY, String(min)); } catch {} };
+  const toggleAnalytics = () => {
+    const next = !analyticsOff;
+    setAnalyticsOff(next);
+    try { localStorage.setItem("gw_analytics_off", next ? "1" : "0"); } catch {}
+  };
+
+  // First-party product analytics: fire-and-forget a non-sensitive event to our
+  // own Supabase. Never logs codes/amounts/card contents. No-ops if the user opted
+  // out or if the table isn't there yet.
+  const track = useCallback((event, props) => {
+    try {
+      if (!session || localStorage.getItem("gw_analytics_off") === "1") return;
+      supabase.from("analytics_events").insert({ user_id: session.user.id, event, props: props || null }).then(() => {}, () => {});
+    } catch {}
+  }, [session]);
+
+  const changeLang = (lng) => { setLang(lng); setLangTick(x => x + 1); track("language_changed", { lang: lng }); };
+  const openPaywall = () => { setPaywallModal(true); track("paywall_shown"); };
+
+  // Count an app session each time the vault becomes usable (unlock or resume).
+  useEffect(() => { if (vaultState === "open") track("app_open"); }, [vaultState, track]);
 
   // ─── Vault: setup / unlock / recovery / key rotation ────────────────────────
 
@@ -814,7 +835,7 @@ export default function App() {
   const atCardLimit = !isPremium && cards.length >= FREE_CARD_LIMIT;
   const emptyForm = { provider: "buyme", code: "", originalAmount: "", expiry: "", expiryDisplay: "", notes: "", image: null, color: "", storeName: "", cvv: "", cardHolder: "" };
   const startAddCard = () => {
-    if (atCardLimit) { setPaywallModal(true); return; }
+    if (atCardLimit) { openPaywall(); return; }
     setEditingCard(null);
     setForm(emptyForm);
     setView("add");
@@ -847,7 +868,7 @@ export default function App() {
       if (error) return showToast("שגיאה בעדכון", "error");
       showToast("כרטיס עודכן ✓");
     } else {
-      if (atCardLimit) { setView("dashboard"); setPaywallModal(true); return; }
+      if (atCardLimit) { setView("dashboard"); openPaywall(); return; }
       const { error } = await supabase.from("cards").insert({
         user_id: session.user.id, provider: form.provider,
         code: await encryptField(form.code.trim(), dek),
@@ -860,10 +881,11 @@ export default function App() {
       });
       if (error) {
         // Defense in depth: the DB trigger also blocks a 3rd card on the free plan.
-        if (String(error.message || "").includes("FREE_CARD_LIMIT")) { setView("dashboard"); setPaywallModal(true); return; }
+        if (String(error.message || "").includes("FREE_CARD_LIMIT")) { setView("dashboard"); openPaywall(); return; }
         return showToast("שגיאה בהוספה", "error");
       }
       showToast("כרטיס נוסף! 🎉");
+      track("card_added", { provider: form.provider });
     }
 
     setForm({ provider: "buyme", code: "", originalAmount: "", expiry: "", expiryDisplay: "", notes: "", image: null, color: "", storeName: "", cvv: "", cardHolder: "" });
@@ -895,6 +917,7 @@ export default function App() {
 
     setUseForm({ store: "", purpose: "קניות", amount: "", date: new Date().toISOString().split("T")[0], notes: "" });
     showToast("שימוש נרשם ✓");
+    track("card_used", { category: useForm.purpose });
     await loadCardsFromDB();
     setView("detail");
   };
@@ -992,6 +1015,7 @@ export default function App() {
       showToast("הפרטים הוסתרו אוטומטית 🔒");
     }, 60000);
     showToast("פרטים גלויים ל-60 שניות 🔓");
+    track("reveal_code");
   };
 
   // ── Copy to clipboard ──
@@ -1007,7 +1031,7 @@ export default function App() {
   // which re-encrypts it under their own DEK. The transfer password is shared out
   // of band. Zero-knowledge is preserved — we never see the code.
   const startTransfer = (card) => {
-    if (!isPremium) { setPaywallModal(true); return; }
+    if (!isPremium) { openPaywall(); return; }
     setTransferModal(card.id);
   };
 
@@ -1039,6 +1063,7 @@ export default function App() {
     setTransferModal(null);
     setTransferredCard(card);   // offer to delete the sender's copy
     showToast("קובץ העברה מוצפן נוצר ✓");
+    track("transfer_created");
     return true;
   };
 
@@ -1230,7 +1255,7 @@ export default function App() {
             ) : (
               <>
                 <div style={{ color: "#9ca3af", fontSize: 14, marginBottom: 12 }}>{ti("תוכנית חינמית · עד {n} כרטיסים", { n: FREE_CARD_LIMIT })}</div>
-                <button style={S.primaryBtn} onClick={() => setPaywallModal(true)}>{t("✨ שדרג ל-Premium")}</button>
+                <button style={S.primaryBtn} onClick={() => { track("upgrade_clicked"); openPaywall(); }}>{t("✨ שדרג ל-Premium")}</button>
               </>
             )}
           </div>
@@ -1284,6 +1309,15 @@ export default function App() {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div style={S.sectionCard}>
+            <h3 style={S.sectionTitle}>{t("📈 שיפור המוצר")}</h3>
+            <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", color: "#ccd6f6", fontSize: 14 }}>
+              <input type="checkbox" checked={!analyticsOff} onChange={toggleAnalytics} style={{ accentColor: "#6c63ff", width: 18, height: 18 }} />
+              {t("שיתוף נתוני שימוש אנונימיים לשיפור האפליקציה")}
+            </label>
+            <div style={{ color: "#4b5563", fontSize: 11, marginTop: 8, lineHeight: 1.6 }}>{t("נאסף רק שימוש כללי (מסכים ופעולות) — לעולם לא הקודים, הסכומים או תוכן הכרטיסים.")}</div>
           </div>
 
           <div style={S.sectionCard}>
@@ -1867,7 +1901,7 @@ export default function App() {
             </div>
           </div>
           <div style={{ display: "flex", gap: 10 }}>
-            <button style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer" }} onClick={() => setView("stats")}>📊</button>
+            <button style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer" }} onClick={() => { setView("stats"); track("stats_viewed"); }}>📊</button>
             <button style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer" }} onClick={() => setView("settings")}>⚙️</button>
             <button style={S.addBtn} onClick={startAddCard}>{t("+ הוסף")}</button>
           </div>
