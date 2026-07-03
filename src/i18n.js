@@ -58,6 +58,8 @@ const EN = {
   "שלח קוד ✉️": "Send code ✉️",
   "קוד חד פעמי — אין צורך בסיסמה": "One-time code — no password needed",
   "בהרשמה אתה מאשר את ": "By signing up you agree to the ",
+  "קראתי ואני מאשר/ת את ": "I have read and agree to the ",
+  "יש לאשר את תנאי השימוש ומדיניות הפרטיות": "You must accept the Terms of Service and Privacy Policy",
   "תנאי השימוש": "Terms of Service",
   " ואת ": " and ",
   "מדיניות הפרטיות": "Privacy Policy",

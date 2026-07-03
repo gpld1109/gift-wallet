@@ -393,10 +393,12 @@ function AuthScreen() {
   const [step, setStep] = useState("email"); // email | code
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [agreed, setAgreed] = useState(false); // must accept Terms + Privacy to sign up
   const [legalView, setLegalView] = useState(null); // null | "privacy" | "terms"
 
   const sendOtp = async () => {
     if (!email.trim()) return setError(t("נא להכניס אימייל"));
+    if (!agreed) return setError(t("יש לאשר את תנאי השימוש ומדיניות הפרטיות"));
     setLoading(true);
     setError("");
     const { error } = await supabase.auth.signInWithOtp({
@@ -451,17 +453,20 @@ function AuthScreen() {
                 dir="ltr"
               />
               {error && <div role="alert" style={{ color: "#ef4444", fontSize: 13, marginBottom: 12 }}>{error}</div>}
+              <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", marginBottom: 14 }}>
+                <input type="checkbox" checked={agreed} onChange={e => { setAgreed(e.target.checked); setError(""); }} style={{ accentColor: "#6c63ff", width: 18, height: 18, marginTop: 1, flexShrink: 0 }} />
+                <span style={{ color: "#9ca3af", fontSize: 12, lineHeight: 1.6 }}>
+                  {t("קראתי ואני מאשר/ת את ")}<a href="#" onClick={(e) => { e.preventDefault(); setLegalView("terms"); }} style={{ color: "#6c63ff" }}>{t("תנאי השימוש")}</a>{t(" ואת ")}<a href="#" onClick={(e) => { e.preventDefault(); setLegalView("privacy"); }} style={{ color: "#6c63ff" }}>{t("מדיניות הפרטיות")}</a>
+                </span>
+              </label>
               <button
                 aria-label={t("שלח קוד אימות לאימייל")}
-                style={{ width: "100%", background: loading ? "#374151" : "linear-gradient(135deg, #6c63ff, #a855f7)", border: "none", color: "#fff", padding: 14, borderRadius: 14, fontSize: 15, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", fontFamily: "inherit" }}
-                onClick={sendOtp} disabled={loading}
+                style={{ width: "100%", background: (loading || !agreed) ? "#374151" : "linear-gradient(135deg, #6c63ff, #a855f7)", border: "none", color: "#fff", padding: 14, borderRadius: 14, fontSize: 15, fontWeight: 700, cursor: (loading || !agreed) ? "not-allowed" : "pointer", fontFamily: "inherit" }}
+                onClick={sendOtp} disabled={loading || !agreed}
               >
                 {loading ? t("שולח...") : t("שלח קוד ✉️")}
               </button>
               <p style={{ color: "#4b5563", fontSize: 12, textAlign: "center", marginTop: 16, marginBottom: 0 }}>{t("קוד חד פעמי — אין צורך בסיסמה")}</p>
-              <p style={{ color: "#4b5563", fontSize: 11, textAlign: "center", marginTop: 12, marginBottom: 0, lineHeight: 1.6 }}>
-                {t("בהרשמה אתה מאשר את ")}<a href="#" onClick={(e) => { e.preventDefault(); setLegalView("terms"); }} style={{ color: "#6c63ff" }}>{t("תנאי השימוש")}</a>{t(" ואת ")}<a href="#" onClick={(e) => { e.preventDefault(); setLegalView("privacy"); }} style={{ color: "#6c63ff" }}>{t("מדיניות הפרטיות")}</a>
-              </p>
             </>
           ) : (
             <>
