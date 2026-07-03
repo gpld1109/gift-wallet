@@ -359,4 +359,20 @@ const EN = {
   "שנה": "year",
   "הבנתי": "Got it",
   "התשלום ייפתח בקרוב": "Payments coming soon",
+
+  // ── Card transfer (Premium) ──
+  "📤 העבר כרטיס לארנק אחר": "📤 Transfer card to another wallet",
+  "העברת כרטיס מוצפן": "Encrypted card transfer",
+  "בחר סיסמת העברה. הכרטיס ייוצא כקובץ מוצפן — הנמען יזדקק לסיסמה כדי לייבא אותו. מסור לו אותה בערוץ נפרד (לא באותה הודעה).": "Choose a transfer password. The card is exported as an encrypted file — the recipient needs the password to import it. Share it via a separate channel (not the same message).",
+  "📤 צור קובץ העברה": "📤 Create transfer file",
+  "קובץ העברה מוצפן נוצר ✓": "Encrypted transfer file created ✓",
+  "הכרטיס הועבר": "Card transferred",
+  "נוצר קובץ מוצפן. שלח אותו לנמען (WhatsApp / מייל) ומסור לו את סיסמת ההעברה בערוץ נפרד. למחוק את הכרטיס מהארנק שלך?": "An encrypted file was created. Send it to the recipient (WhatsApp / email) and share the transfer password separately. Delete the card from your wallet?",
+  "מחק מהארנק": "Delete from wallet",
+  "השאר אצלי": "Keep it",
+
+  // ── Provider bundles (Premium) ──
+  "{n} כרטיסים": "{n} cards",
+  "לחץ לפתיחת הכרטיסים": "Tap to open the cards",
+  "לחץ לסגירה": "Tap to collapse",
 };

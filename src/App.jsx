@@ -301,7 +301,7 @@ function RevealPinPad({ mode = "verify", length = 6, title, subtitle, onVerify, 
 
 // Password form for encrypted backup export ("export": password + confirm) and
 // import ("import": single password). onSubmit returns false on a wrong password.
-function BackupPasswordForm({ mode, onSubmit }) {
+function BackupPasswordForm({ mode, onSubmit, hideIntro, exportLabel }) {
   const [pass, setPass] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
@@ -316,7 +316,7 @@ function BackupPasswordForm({ mode, onSubmit }) {
   };
   return (
     <>
-      {mode === "export" && (
+      {mode === "export" && !hideIntro && (
         <p style={{ color: "#8892b0", fontSize: 13, lineHeight: 1.6, marginTop: 0, marginBottom: 16 }}>
           {t("בחר סיסמה להצפנת קובץ הגיבוי. ")}<strong style={{ color: "#a8b2d8" }}>{t("תצטרך אותה כדי לשחזר")}</strong>{t(" — שמור אותה.")}
         </p>
@@ -330,7 +330,7 @@ function BackupPasswordForm({ mode, onSubmit }) {
         </>
       )}
       {error && <div role="alert" style={{ color: "#ef4444", fontSize: 13, marginBottom: 12 }}>{error}</div>}
-      <button style={vaultBtn(busy)} onClick={submit} disabled={busy}>{busy ? t("מעבד...") : (mode === "export" ? t("📥 ייצא גיבוי מוצפן") : t("🔓 שחזר"))}</button>
+      <button style={vaultBtn(busy)} onClick={submit} disabled={busy}>{busy ? t("מעבד...") : (mode === "export" ? (exportLabel || t("📥 ייצא גיבוי מוצפן")) : t("🔓 שחזר"))}</button>
     </>
   );
 }
@@ -509,6 +509,9 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [isPremium, setIsPremium] = useState(false); // plan gating (from profiles)
   const [paywallModal, setPaywallModal] = useState(false);
+  const [transferModal, setTransferModal] = useState(null);   // cardId being transferred out (Premium)
+  const [transferredCard, setTransferredCard] = useState(null); // card just exported → offer to delete
+  const [expandedGroups, setExpandedGroups] = useState({});   // provider-bundle expand/collapse (Premium)
   const [view, setView] = useState("dashboard");
   const [selectedId, setSelectedId] = useState(null);
   const [filterProvider, setFilterProvider] = useState("all");
@@ -948,6 +951,48 @@ export default function App() {
   const copyText = (text) => {
     try { navigator.clipboard?.writeText(text); showToast("הקוד הועתק ✓"); }
     catch { showToast("ההעתקה נכשלה", "error"); }
+  };
+
+  // ── Transfer a single card to another wallet (Premium) ──
+  // Reuses the encrypted-backup machinery: the card is exported as a password-
+  // encrypted file containing just this one card (with its *remaining* value as a
+  // fresh card, no personal history). The recipient imports it via "Import backup",
+  // which re-encrypts it under their own DEK. The transfer password is shared out
+  // of band. Zero-knowledge is preserved — we never see the code.
+  const startTransfer = (card) => {
+    if (!isPremium) { setPaywallModal(true); return; }
+    setTransferModal(card.id);
+  };
+
+  const doTransfer = async (password) => {
+    const card = cards.find(c => c.id === transferModal);
+    if (!card) { setTransferModal(null); return true; }
+    const normalized = {
+      provider: card.provider,
+      code: card.code || "",
+      cvv: card.cvv || "",
+      cardHolder: card.cardHolder || null,
+      originalAmount: card.remainingAmount,   // hand over the remaining value as a new card
+      remainingAmount: card.remainingAmount,
+      expiry: card.expiry || null,
+      notes: card.notes || "",
+      image: card.image || null,
+      color: card.color || null,
+      storeName: card.storeName || null,
+      fullyUsed: false,
+      transactions: [],                       // don't leak personal usage history
+    };
+    const payload = JSON.stringify({ cards: [normalized], transfer: true, exportedAt: new Date().toISOString() });
+    const enc = await encryptBackup(payload, password);
+    const blob = new Blob([JSON.stringify(enc, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url;
+    a.download = `gift-card-transfer-${new Date().toISOString().split("T")[0]}.json`; a.click();
+    URL.revokeObjectURL(url);
+    setTransferModal(null);
+    setTransferredCard(card);   // offer to delete the sender's copy
+    showToast("קובץ העברה מוצפן נוצר ✓");
+    return true;
   };
 
   // ── Export (password-encrypted backup) ──
@@ -1581,6 +1626,10 @@ export default function App() {
             <button style={S.primaryBtn} onClick={() => setView("use")}>{t("+ רשום שימוש חדש")}</button>
           )}
 
+          {!selectedCard.fullyUsed && !expired && selectedCard.remainingAmount > 0 && (
+            <button style={{ ...S.outlineBtn, marginTop: 12 }} onClick={() => startTransfer(selectedCard)}>{t("📤 העבר כרטיס לארנק אחר")}{!isPremium && " ✨"}</button>
+          )}
+
           <div style={{ marginTop: 28 }}>
             <h3 style={{ ...S.sectionTitle, marginBottom: 12 }}>{ti("היסטוריית שימוש ({n})", { n: (selectedCard.transactions || []).length })}</h3>
             {(selectedCard.transactions || []).length === 0 ? (
@@ -1645,6 +1694,27 @@ export default function App() {
           </Modal>
         )}
 
+        {transferModal && (
+          <Modal title={t("העברת כרטיס מוצפן")} onClose={() => setTransferModal(null)}>
+            <p style={{ color: "#8892b0", fontSize: 13, lineHeight: 1.6, marginTop: 0, marginBottom: 16 }}>
+              {t("בחר סיסמת העברה. הכרטיס ייוצא כקובץ מוצפן — הנמען יזדקק לסיסמה כדי לייבא אותו. מסור לו אותה בערוץ נפרד (לא באותה הודעה).")}
+            </p>
+            <BackupPasswordForm mode="export" hideIntro exportLabel={t("📤 צור קובץ העברה")} onSubmit={doTransfer} />
+          </Modal>
+        )}
+
+        {transferredCard && (
+          <Modal title={t("הכרטיס הועבר")} onClose={() => setTransferredCard(null)}>
+            <p style={{ color: "#9ca3af", fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>
+              {t("נוצר קובץ מוצפן. שלח אותו לנמען (WhatsApp / מייל) ומסור לו את סיסמת ההעברה בערוץ נפרד. למחוק את הכרטיס מהארנק שלך?")}
+            </p>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button style={{ ...S.primaryBtn, background: "#ef4444", flex: 1, marginTop: 0 }} onClick={() => { const id = transferredCard.id; setTransferredCard(null); deleteCard(id); }}>{t("מחק מהארנק")}</button>
+              <button style={{ ...S.outlineBtn, flex: 1 }} onClick={() => setTransferredCard(null)}>{t("השאר אצלי")}</button>
+            </div>
+          </Modal>
+        )}
+
         {toast && <Toast toast={toast} />}
       </div>
     );
@@ -1656,13 +1726,81 @@ export default function App() {
   const expiringSoonCount = cards.filter(c => !c.fullyUsed && isExpiringSoon(c.expiry)).length;
   const totalSaved = cards.reduce((s, c) => s + c.originalAmount, 0);
 
+  // A single card row (extracted so it can be reused inside provider bundles).
+  const renderCard = (card) => {
+    const prov = provider(card.provider);
+    const cardColor = card.color || prov.color;
+    const usedPct = Math.round(((card.originalAmount - card.remainingAmount) / card.originalAmount) * 100);
+    const expired = isExpired(card.expiry);
+    const expiring = isExpiringSoon(card.expiry);
+    const dl = daysLeft(card.expiry);
+    return (
+      <button key={card.id} style={{ background: "#111827", borderRadius: 18, padding: 0, border: `1px solid ${expiring ? "#f59e0b44" : "#1f2937"}`, cursor: "pointer", width: "100%", textAlign: getLang() === "he" ? "right" : "left", fontFamily: "inherit", overflow: "hidden", opacity: card.fullyUsed || expired ? 0.55 : 1 }}
+        onClick={() => { setSelectedId(card.id); setView("detail"); }}>
+        <div style={{ height: 4, background: `linear-gradient(90deg, ${cardColor}, ${cardColor}44)` }} />
+        <div style={{ padding: "16px 18px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 13, background: `linear-gradient(135deg, ${cardColor}, ${cardColor}88)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>
+              {prov.icon}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div style={{ fontWeight: 800, fontSize: 19, color: card.fullyUsed ? "#6b7280" : "#f3f4f6" }}>{fmt(card.remainingAmount)}</div>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14, color: "#9ca3af" }}>{card.provider === "credit" && card.storeName ? card.storeName : t(prov.name)}</div>
+                  {card.provider === "credit" && <span style={{ background: "#0ea5e922", color: "#38bdf8", padding: "2px 8px", borderRadius: 20, fontSize: 10, fontWeight: 700 }}>{t("↩️ זיכוי")}</span>}
+                </div>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 3 }}>
+                <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                  {card.fullyUsed && <span style={{ background: "#1f2937", color: "#6b7280", padding: "2px 8px", borderRadius: 20, fontSize: 10 }}>{t("נוצל במלואו")}</span>}
+                  {expired && !card.fullyUsed && <span style={{ background: "#ef444422", color: "#f87171", padding: "2px 8px", borderRadius: 20, fontSize: 10 }}>{t("פג תוקף")}</span>}
+                  {expiring && !card.fullyUsed && <span style={{ background: "#f59e0b22", color: "#fcd34d", padding: "2px 8px", borderRadius: 20, fontSize: 10, fontWeight: 700 }}>{ti("⚠ {n} ימים", { n: dl })}</span>}
+                </div>
+                <div style={{ color: "#4b5563", fontSize: 11, fontFamily: "monospace" }}>{t(prov.name)}</div>
+              </div>
+              <div style={{ marginTop: 10 }}>
+                <div style={S.progressBg}>
+                  <div style={{ ...S.progressFill, width: `${usedPct}%`, background: cardColor }} />
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 3, color: "#4b5563", fontSize: 10 }}>
+                  <span>{ti("נוצל {n}% · {m} עסקאות", { n: usedPct, m: (card.transactions || []).length })}</span>
+                  {card.expiry && <span>{ti("עד {date}", { date: fmtDate(card.expiry) })}</span>}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </button>
+    );
+  };
+
+  // Premium: bundle multiple cards of the same provider into one expandable stack.
+  // Store credits are keyed by store name (they're store-specific); "other" is
+  // never bundled (it's a mixed bag). Groups preserve the current sort order.
+  const groupKey = (c) => c.provider === "credit" ? `credit:${c.storeName || ""}` : c.provider;
+  const groupedCards = isPremium ? (() => {
+    const order = []; const map = new Map();
+    for (const c of filteredCards) {
+      const k = groupKey(c);
+      if (!map.has(k)) { map.set(k, []); order.push(k); }
+      map.get(k).push(c);
+    }
+    return order.map(k => ({ key: k, provider: map.get(k)[0].provider, cards: map.get(k) }));
+  })() : null;
+
   return (
     <div style={{ ...S.page, display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
       {/* STICKY HEADER */}
       <div style={{ position: "sticky", top: 0, zIndex: 50, background: "#0a0f1e", borderBottom: "1px solid #1f2937", padding: "16px 16px 12px", maxWidth: 520, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <div>
-            <h1 style={{ ...S.title, marginBottom: 2, fontSize: 22 }}>{t("🎁 ארנק הטבות")}</h1>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <h1 style={{ ...S.title, marginBottom: 2, fontSize: 22 }}>{t("🎁 ארנק הטבות")}</h1>
+              {isPremium && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "linear-gradient(135deg, #f7d774, #d4af37)", color: "#3a2c00", fontSize: 10, fontWeight: 800, padding: "3px 9px", borderRadius: 20, letterSpacing: 0.8, boxShadow: "0 2px 10px #d4af3755" }}>✨ PREMIUM</span>
+              )}
+            </div>
             <div style={{ color: "#6b7280", fontSize: 11 }}>{session.user.email}</div>
           </div>
           <div style={{ display: "flex", gap: 10 }}>
@@ -1735,53 +1873,51 @@ export default function App() {
                 <div style={{ fontSize: 13 }}>{t("לחץ + הוסף כדי להתחיל")}</div>
               </div>
             )}
-            {filteredCards.map(card => {
-              const prov = provider(card.provider);
-              const cardColor = card.color || prov.color;
-              const usedPct = Math.round(((card.originalAmount - card.remainingAmount) / card.originalAmount) * 100);
-              const expired = isExpired(card.expiry);
-              const expiring = isExpiringSoon(card.expiry);
-              const dl = daysLeft(card.expiry);
-              return (
-                <button key={card.id} style={{ background: "#111827", borderRadius: 18, padding: 0, border: `1px solid ${expiring ? "#f59e0b44" : "#1f2937"}`, cursor: "pointer", width: "100%", textAlign: getLang() === "he" ? "right" : "left", fontFamily: "inherit", overflow: "hidden", opacity: card.fullyUsed || expired ? 0.55 : 1 }}
-                  onClick={() => { setSelectedId(card.id); setView("detail"); }}>
-                  <div style={{ height: 4, background: `linear-gradient(90deg, ${cardColor}, ${cardColor}44)` }} />
-                  <div style={{ padding: "16px 18px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                      <div style={{ width: 48, height: 48, borderRadius: 13, background: `linear-gradient(135deg, ${cardColor}, ${cardColor}88)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>
-                        {prov.icon}
+            {groupedCards
+              ? groupedCards.map(g => {
+                  const bundle = g.cards.length > 1 && g.provider !== "other";
+                  if (!bundle) return g.cards.map(renderCard);
+                  const first = g.cards[0];
+                  const prov = provider(first.provider);
+                  const color = first.color || prov.color;
+                  const name = first.provider === "credit" && first.storeName ? first.storeName : t(prov.name);
+                  const total = g.cards.reduce((s, c) => s + (c.fullyUsed ? 0 : c.remainingAmount), 0);
+                  const open = !!expandedGroups[g.key];
+                  return (
+                    <div key={g.key} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      <div style={{ position: "relative" }}>
+                        <div style={{ position: "absolute", top: -6, left: 12, right: 12, height: 22, background: "#0e1524", border: "1px solid #1f2937", borderRadius: 16 }} />
+                        <div style={{ position: "absolute", top: -3, left: 6, right: 6, height: 22, background: "#0f1728", border: "1px solid #1f2937", borderRadius: 17 }} />
+                        <button onClick={() => setExpandedGroups(s => ({ ...s, [g.key]: !s[g.key] }))}
+                          style={{ position: "relative", background: "#111827", borderRadius: 18, padding: 0, border: "1px solid #1f2937", cursor: "pointer", width: "100%", textAlign: getLang() === "he" ? "right" : "left", fontFamily: "inherit", overflow: "hidden" }}>
+                          <div style={{ height: 4, background: `linear-gradient(90deg, ${color}, ${color}44)` }} />
+                          <div style={{ padding: "16px 18px", display: "flex", alignItems: "center", gap: 14 }}>
+                            <div style={{ width: 48, height: 48, borderRadius: 13, background: `linear-gradient(135deg, ${color}, ${color}88)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>{prov.icon}</div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <div style={{ fontWeight: 800, fontSize: 19, color: "#f3f4f6" }}>{fmt(total)}</div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                  <span style={{ fontWeight: 600, fontSize: 14, color: "#9ca3af" }}>{name}</span>
+                                  <span style={{ background: color + "22", color: "#cbd5e1", padding: "2px 9px", borderRadius: 20, fontSize: 11, fontWeight: 800 }}>{ti("{n} כרטיסים", { n: g.cards.length })}</span>
+                                </div>
+                              </div>
+                              <div style={{ marginTop: 6, color: "#6b7280", fontSize: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <span>{open ? t("לחץ לסגירה") : t("לחץ לפתיחת הכרטיסים")}</span>
+                                <span style={{ display: "inline-block", transition: "transform 0.2s", transform: open ? "rotate(180deg)" : "none" }}>▾</span>
+                              </div>
+                            </div>
+                          </div>
+                        </button>
                       </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                          <div style={{ fontWeight: 800, fontSize: 19, color: card.fullyUsed ? "#6b7280" : "#f3f4f6" }}>{fmt(card.remainingAmount)}</div>
-                          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3 }}>
-                            <div style={{ fontWeight: 600, fontSize: 14, color: "#9ca3af" }}>{card.provider === "credit" && card.storeName ? card.storeName : t(prov.name)}</div>
-                            {card.provider === "credit" && <span style={{ background: "#0ea5e922", color: "#38bdf8", padding: "2px 8px", borderRadius: 20, fontSize: 10, fontWeight: 700 }}>{t("↩️ זיכוי")}</span>}
-                          </div>
+                      {open && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingInlineStart: 14 }}>
+                          {g.cards.map(renderCard)}
                         </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 3 }}>
-                          <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                            {card.fullyUsed && <span style={{ background: "#1f2937", color: "#6b7280", padding: "2px 8px", borderRadius: 20, fontSize: 10 }}>{t("נוצל במלואו")}</span>}
-                            {expired && !card.fullyUsed && <span style={{ background: "#ef444422", color: "#f87171", padding: "2px 8px", borderRadius: 20, fontSize: 10 }}>{t("פג תוקף")}</span>}
-                            {expiring && !card.fullyUsed && <span style={{ background: "#f59e0b22", color: "#fcd34d", padding: "2px 8px", borderRadius: 20, fontSize: 10, fontWeight: 700 }}>{ti("⚠ {n} ימים", { n: dl })}</span>}
-                          </div>
-                          <div style={{ color: "#4b5563", fontSize: 11, fontFamily: "monospace" }}>{t(prov.name)}</div>
-                        </div>
-                        <div style={{ marginTop: 10 }}>
-                          <div style={S.progressBg}>
-                            <div style={{ ...S.progressFill, width: `${usedPct}%`, background: cardColor }} />
-                          </div>
-                          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 3, color: "#4b5563", fontSize: 10 }}>
-                            <span>{ti("נוצל {n}% · {m} עסקאות", { n: usedPct, m: (card.transactions || []).length })}</span>
-                            {card.expiry && <span>{ti("עד {date}", { date: fmtDate(card.expiry) })}</span>}
-                          </div>
-                        </div>
-                      </div>
+                      )}
                     </div>
-                  </div>
-                </button>
-              );
-            })}
+                  );
+                })
+              : filteredCards.map(renderCard)}
           </div>
         </div>
       </div>
