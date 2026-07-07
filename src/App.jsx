@@ -429,44 +429,73 @@ function AuthScreen() {
   if (legalView === "terms") return <TermsOfService onBack={() => setLegalView(null)} />;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0a0f1e", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "'Segoe UI', Arial, sans-serif" }}>
-      <div style={{ width: "100%", maxWidth: 380 }}>
-        <div style={{ textAlign: "center", marginBottom: 40 }}>
-          <div style={{ fontSize: 64, marginBottom: 16 }}>🎁</div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: "#f3f4f6", margin: 0 }}>{t("ארנק הטבות")}</h1>
-          <p style={{ color: "#6b7280", marginTop: 8, fontSize: 15 }}>{t("גיפט קארדים · קופונים · זיכויים")}</p>
+    <div style={{ minHeight: "100vh", background: "radial-gradient(1100px 560px at 82% -12%, #1b1442 0%, #0a0f1e 55%)", color: "#e8eaf6", fontFamily: "'Segoe UI', Arial, sans-serif", overflowX: "hidden" }}>
+      <div style={{ maxWidth: 460, margin: "0 auto", padding: "30px 20px 34px", boxSizing: "border-box" }}>
+
+        {/* HERO */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 22 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1 style={{ fontSize: 30, fontWeight: 800, lineHeight: 1.15, margin: 0, color: "#f3f4f6" }}>
+              {t("כל מה ששייך לך,")}<br />
+              <span style={{ background: "linear-gradient(135deg, #7c9cff, #c084fc)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>{t("במקום אחד.")}</span>
+            </h1>
+            <p style={{ color: "#8b93a7", fontSize: 14, lineHeight: 1.6, marginTop: 12, marginBottom: 0 }}>{t("הארנק החכם שלך לגיפט קארדים, זיכויים, וקופונים דיגיטליים.")}</p>
+          </div>
+          <div style={{ width: 150, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {/* Hero illustration — drop the file at public/hero-wallet.png; a fallback shows until then. */}
+            <img src="/hero-wallet.png" alt="" style={{ width: "100%", height: "auto", maxHeight: 210, objectFit: "contain" }}
+              onError={(e) => { e.currentTarget.style.display = "none"; if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = "flex"; }} />
+            <div style={{ display: "none", width: 118, height: 118, borderRadius: 30, background: "linear-gradient(135deg, #6c63ff, #a855f7)", alignItems: "center", justifyContent: "center", fontSize: 54, boxShadow: "0 14px 44px #6c63ff55" }}>👛</div>
+          </div>
         </div>
 
-        <div style={{ background: "#111827", borderRadius: 20, padding: 28, border: "1px solid #1f2937" }}>
+        {/* FEATURES */}
+        <div style={{ background: "#0f142499", border: "1px solid #1f2937", borderRadius: 20, padding: "18px 10px", marginBottom: 18 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
+            {[
+              { icon: "🔔", label: t("לא מפספסים הטבות"), c: "#f59e0b" },
+              { icon: "📊", label: t("עוקבים אחרי מה שיש לכם"), c: "#a855f7" },
+              { icon: "🛡️", label: t("מאובטח וסודי"), c: "#6c63ff" },
+              { icon: "👛", label: t("מסודר, נגיש וזמין תמיד"), c: "#0ea5e9" },
+            ].map((f) => (
+              <div key={f.label} style={{ textAlign: "center" }}>
+                <div style={{ width: 46, height: 46, margin: "0 auto 8px", borderRadius: "50%", background: f.c + "22", border: `1px solid ${f.c}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>{f.icon}</div>
+                <div style={{ fontSize: 10.5, color: "#9ca3af", lineHeight: 1.35 }}>{f.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* AUTH CARD */}
+        <div style={{ background: "#111827", borderRadius: 20, padding: 24, border: "1px solid #1f2937" }}>
           {step === "email" ? (
             <>
-              <h2 style={{ color: "#e8eaf6", fontSize: 18, fontWeight: 700, marginBottom: 6, marginTop: 0 }}>{t("כניסה / הרשמה")}</h2>
-              <p style={{ color: "#6b7280", fontSize: 13, marginBottom: 20, marginTop: 0 }}>{t("נשלח לך קוד 6 ספרות למייל")}</p>
-              <label htmlFor="email-input" style={{ display: "block", color: "#9ca3af", fontSize: 12, fontWeight: 700, marginBottom: 7, textTransform: "uppercase", letterSpacing: 0.5 }}>{t("אימייל")}</label>
-              <input
-                id="email-input"
-                aria-label={t("כתובת אימייל לכניסה")}
-                style={{ width: "100%", background: "#0a0f1e", border: "1px solid #1f2937", borderRadius: 12, padding: "13px 14px", color: "#e8eaf6", fontSize: 15, fontFamily: "inherit", outline: "none", boxSizing: "border-box", marginBottom: 12 }}
-                type="email" placeholder="your@email.com" value={email}
-                onChange={e => { setEmail(e.target.value); setError(""); }}
-                onKeyDown={e => e.key === "Enter" && sendOtp()}
-                dir="ltr"
-              />
+              <h2 style={{ color: "#e8eaf6", fontSize: 20, fontWeight: 800, marginTop: 0, marginBottom: 16, textAlign: "center" }}>{t("ברוך הבא לארנק שלך")}</h2>
+              <div style={{ position: "relative", marginBottom: 12 }}>
+                <span style={{ position: "absolute", insetInlineStart: 14, top: "50%", transform: "translateY(-50%)", fontSize: 16, opacity: 0.6, pointerEvents: "none" }}>✉️</span>
+                <input
+                  id="email-input" aria-label={t("כתובת אימייל לכניסה")}
+                  style={{ width: "100%", background: "#0a0f1e", border: "1px solid #1f2937", borderRadius: 14, padding: "14px 44px", color: "#e8eaf6", fontSize: 15, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}
+                  type="email" placeholder={t("כתובת אימייל")} value={email}
+                  onChange={e => { setEmail(e.target.value); setError(""); }}
+                  onKeyDown={e => e.key === "Enter" && sendOtp()} dir="ltr"
+                />
+              </div>
               {error && <div role="alert" style={{ color: "#ef4444", fontSize: 13, marginBottom: 12 }}>{error}</div>}
               <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", marginBottom: 14 }}>
                 <input type="checkbox" checked={agreed} onChange={e => { setAgreed(e.target.checked); setError(""); }} style={{ accentColor: "#6c63ff", width: 18, height: 18, marginTop: 1, flexShrink: 0 }} />
                 <span style={{ color: "#9ca3af", fontSize: 12, lineHeight: 1.6 }}>
-                  {t("קראתי ואני מאשר/ת את ")}<a href="#" onClick={(e) => { e.preventDefault(); setLegalView("terms"); }} style={{ color: "#6c63ff" }}>{t("תנאי השימוש")}</a>{t(" ואת ")}<a href="#" onClick={(e) => { e.preventDefault(); setLegalView("privacy"); }} style={{ color: "#6c63ff" }}>{t("מדיניות הפרטיות")}</a>
+                  {t("קראתי ואני מאשר/ת את ")}<a href="#" onClick={(e) => { e.preventDefault(); setLegalView("terms"); }} style={{ color: "#8b9dff" }}>{t("תנאי השימוש")}</a>{t(" ואת ")}<a href="#" onClick={(e) => { e.preventDefault(); setLegalView("privacy"); }} style={{ color: "#8b9dff" }}>{t("מדיניות הפרטיות")}</a>
                 </span>
               </label>
               <button
                 aria-label={t("שלח קוד אימות לאימייל")}
-                style={{ width: "100%", background: (loading || !agreed) ? "#374151" : "linear-gradient(135deg, #6c63ff, #a855f7)", border: "none", color: "#fff", padding: 14, borderRadius: 14, fontSize: 15, fontWeight: 700, cursor: (loading || !agreed) ? "not-allowed" : "pointer", fontFamily: "inherit" }}
+                style={{ width: "100%", background: (loading || !agreed) ? "#374151" : "linear-gradient(135deg, #6c63ff, #a855f7)", border: "none", color: "#fff", padding: 15, borderRadius: 14, fontSize: 15, fontWeight: 800, cursor: (loading || !agreed) ? "not-allowed" : "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}
                 onClick={sendOtp} disabled={loading || !agreed}
               >
-                {loading ? t("שולח...") : t("שלח קוד ✉️")}
+                {loading ? t("שולח...") : <>{t("המשך לכניסה")}<span style={{ fontSize: 18 }}>←</span></>}
               </button>
-              <p style={{ color: "#4b5563", fontSize: 12, textAlign: "center", marginTop: 16, marginBottom: 0 }}>{t("קוד חד פעמי — אין צורך בסיסמה")}</p>
+              <p style={{ color: "#4b5563", fontSize: 12, textAlign: "center", marginTop: 14, marginBottom: 0 }}>{t("קוד חד פעמי — אין צורך בסיסמה")}</p>
             </>
           ) : (
             <>
@@ -497,6 +526,12 @@ function AuthScreen() {
             </>
           )}
         </div>
+
+        {/* FOOTER */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 20, color: "#4b5563", fontSize: 12 }}>
+          <span>🔒</span>{t("הנתונים שלך שמורים בצורה מאובטחת")}
+        </div>
+
       </div>
     </div>
   );
