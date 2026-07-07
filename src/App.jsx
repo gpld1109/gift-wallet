@@ -429,21 +429,21 @@ function AuthScreen() {
   if (legalView === "terms") return <TermsOfService onBack={() => setLegalView(null)} />;
 
   return (
-    <div style={{ minHeight: "100vh", background: "radial-gradient(1100px 560px at 82% -12%, #1b1442 0%, #0a0f1e 55%)", color: "#e8eaf6", fontFamily: "'Segoe UI', Arial, sans-serif", overflowX: "hidden" }}>
-      <div style={{ maxWidth: 460, margin: "0 auto", padding: "30px 20px 34px", boxSizing: "border-box" }}>
+    <div style={{ minHeight: "100vh", background: "#0a0f1e", color: "#e8eaf6", fontFamily: "'Segoe UI', Arial, sans-serif", overflowX: "hidden" }}>
+      <div style={{ maxWidth: 460, margin: "0 auto", padding: "26px 20px 34px", boxSizing: "border-box" }}>
 
         {/* HERO */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 22 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 20 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <h1 style={{ fontSize: 30, fontWeight: 800, lineHeight: 1.15, margin: 0, color: "#f3f4f6" }}>
+            <h1 style={{ fontSize: 29, fontWeight: 800, lineHeight: 1.15, margin: 0, color: "#f3f4f6" }}>
               {t("כל מה ששייך לך,")}<br />
               <span style={{ background: "linear-gradient(135deg, #7c9cff, #c084fc)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>{t("במקום אחד.")}</span>
             </h1>
             <p style={{ color: "#8b93a7", fontSize: 14, lineHeight: 1.6, marginTop: 12, marginBottom: 0 }}>{t("הארנק החכם שלך לגיפט קארדים, זיכויים, וקופונים דיגיטליים.")}</p>
           </div>
-          <div style={{ width: 150, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            {/* Hero illustration — drop the file at public/hero-wallet.png; a fallback shows until then. */}
-            <img src="/hero-wallet.png" alt="" style={{ width: "100%", height: "auto", maxHeight: 210, objectFit: "contain" }}
+          <div style={{ width: 168, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {/* Hero illustration (public/hero-wallet.png); a fallback shows if it fails to load. */}
+            <img src="/hero-wallet.png" alt="" style={{ width: "100%", height: "auto", maxHeight: 240, objectFit: "contain" }}
               onError={(e) => { e.currentTarget.style.display = "none"; if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = "flex"; }} />
             <div style={{ display: "none", width: 118, height: 118, borderRadius: 30, background: "linear-gradient(135deg, #6c63ff, #a855f7)", alignItems: "center", justifyContent: "center", fontSize: 54, boxShadow: "0 14px 44px #6c63ff55" }}>👛</div>
           </div>
