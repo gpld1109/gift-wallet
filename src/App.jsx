@@ -96,15 +96,51 @@ function PasswordInput({ style, ...props }) {
   );
 }
 
+// Shared marketing hero (wallet illustration + tagline + feature strip) used on
+// both the login screen and the passphrase (vault) screens.
+function HeroHeader() {
+  const feats = [
+    { icon: "🔔", label: t("לא מפספסים הטבות"), c: "#f59e0b" },
+    { icon: "📊", label: t("עוקבים אחרי מה שיש לכם"), c: "#a855f7" },
+    { icon: "🛡️", label: t("מאובטח וסודי"), c: "#6c63ff" },
+    { icon: "👛", label: t("מסודר, נגיש וזמין תמיד"), c: "#0ea5e9" },
+  ];
+  return (
+    <>
+      <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 20 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h1 style={{ fontSize: 29, fontWeight: 800, lineHeight: 1.15, margin: 0, color: "#f3f4f6" }}>
+            {t("כל מה ששייך לך,")}<br />
+            <span style={{ background: "linear-gradient(135deg, #7c9cff, #c084fc)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>{t("במקום אחד.")}</span>
+          </h1>
+          <p style={{ color: "#8b93a7", fontSize: 14, lineHeight: 1.6, marginTop: 12, marginBottom: 0 }}>{t("הארנק החכם שלך לגיפט קארדים, זיכויים, וקופונים דיגיטליים.")}</p>
+        </div>
+        <div style={{ width: 168, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <img src="/hero-wallet.png" alt="" style={{ width: "100%", height: "auto", maxHeight: 240, objectFit: "contain" }}
+            onError={(e) => { e.currentTarget.style.display = "none"; if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = "flex"; }} />
+          <div style={{ display: "none", width: 118, height: 118, borderRadius: 30, background: "linear-gradient(135deg, #6c63ff, #a855f7)", alignItems: "center", justifyContent: "center", fontSize: 54, boxShadow: "0 14px 44px #6c63ff55" }}>👛</div>
+        </div>
+      </div>
+      <div style={{ background: "#0f142499", border: "1px solid #1f2937", borderRadius: 20, padding: "18px 10px", marginBottom: 18 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
+          {feats.map((f) => (
+            <div key={f.label} style={{ textAlign: "center" }}>
+              <div style={{ width: 46, height: 46, margin: "0 auto 8px", borderRadius: "50%", background: f.c + "22", border: `1px solid ${f.c}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>{f.icon}</div>
+              <div style={{ fontSize: 10.5, color: "#9ca3af", lineHeight: 1.35 }}>{f.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
 function VaultShell({ children }) {
   return (
-    <div style={{ minHeight: "100vh", background: "#0a0f1e", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "'Segoe UI', Arial, sans-serif" }}>
-      <div style={{ width: "100%", maxWidth: 400 }}>
-        <div style={{ textAlign: "center", marginBottom: 24 }}>
-          <div style={{ fontSize: 56, marginBottom: 12 }}>🔐</div>
-          <h1 style={{ fontSize: 24, fontWeight: 800, color: "#f3f4f6", margin: 0 }}>{t("ארנק הטבות")}</h1>
-        </div>
-        <div style={{ background: "#111827", borderRadius: 20, padding: 28, border: "1px solid #1f2937" }}>
+    <div style={{ minHeight: "100vh", background: "#0a0f1e", color: "#e8eaf6", fontFamily: "'Segoe UI', Arial, sans-serif", overflowX: "hidden" }}>
+      <div style={{ maxWidth: 460, margin: "0 auto", padding: "26px 20px 34px", boxSizing: "border-box" }}>
+        <HeroHeader />
+        <div style={{ background: "#111827", borderRadius: 20, padding: 24, border: "1px solid #1f2937" }}>
           {children}
         </div>
       </div>
@@ -432,39 +468,7 @@ function AuthScreen() {
     <div style={{ minHeight: "100vh", background: "#0a0f1e", color: "#e8eaf6", fontFamily: "'Segoe UI', Arial, sans-serif", overflowX: "hidden" }}>
       <div style={{ maxWidth: 460, margin: "0 auto", padding: "26px 20px 34px", boxSizing: "border-box" }}>
 
-        {/* HERO */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 20 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <h1 style={{ fontSize: 29, fontWeight: 800, lineHeight: 1.15, margin: 0, color: "#f3f4f6" }}>
-              {t("כל מה ששייך לך,")}<br />
-              <span style={{ background: "linear-gradient(135deg, #7c9cff, #c084fc)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>{t("במקום אחד.")}</span>
-            </h1>
-            <p style={{ color: "#8b93a7", fontSize: 14, lineHeight: 1.6, marginTop: 12, marginBottom: 0 }}>{t("הארנק החכם שלך לגיפט קארדים, זיכויים, וקופונים דיגיטליים.")}</p>
-          </div>
-          <div style={{ width: 168, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            {/* Hero illustration (public/hero-wallet.png); a fallback shows if it fails to load. */}
-            <img src="/hero-wallet.png" alt="" style={{ width: "100%", height: "auto", maxHeight: 240, objectFit: "contain" }}
-              onError={(e) => { e.currentTarget.style.display = "none"; if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = "flex"; }} />
-            <div style={{ display: "none", width: 118, height: 118, borderRadius: 30, background: "linear-gradient(135deg, #6c63ff, #a855f7)", alignItems: "center", justifyContent: "center", fontSize: 54, boxShadow: "0 14px 44px #6c63ff55" }}>👛</div>
-          </div>
-        </div>
-
-        {/* FEATURES */}
-        <div style={{ background: "#0f142499", border: "1px solid #1f2937", borderRadius: 20, padding: "18px 10px", marginBottom: 18 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
-            {[
-              { icon: "🔔", label: t("לא מפספסים הטבות"), c: "#f59e0b" },
-              { icon: "📊", label: t("עוקבים אחרי מה שיש לכם"), c: "#a855f7" },
-              { icon: "🛡️", label: t("מאובטח וסודי"), c: "#6c63ff" },
-              { icon: "👛", label: t("מסודר, נגיש וזמין תמיד"), c: "#0ea5e9" },
-            ].map((f) => (
-              <div key={f.label} style={{ textAlign: "center" }}>
-                <div style={{ width: 46, height: 46, margin: "0 auto 8px", borderRadius: "50%", background: f.c + "22", border: `1px solid ${f.c}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>{f.icon}</div>
-                <div style={{ fontSize: 10.5, color: "#9ca3af", lineHeight: 1.35 }}>{f.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <HeroHeader />
 
         {/* AUTH CARD */}
         <div style={{ background: "#111827", borderRadius: 20, padding: 24, border: "1px solid #1f2937" }}>
