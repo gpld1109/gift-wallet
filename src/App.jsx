@@ -281,6 +281,34 @@ function ChangePassphraseForm({ onSave }) {
   );
 }
 
+// Escape hatch for a forgotten reveal PIN: prove the encryption passphrase
+// (the real protection) and the local PIN is dropped.
+function ForgotPinForm({ onSubmit }) {
+  const [pass, setPass] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submit = async () => {
+    if (!pass) return;
+    setBusy(true); setError("");
+    const ok = await onSubmit(pass);
+    setBusy(false);
+    if (!ok) { setError(t("סיסמה שגויה")); setPass(""); }
+  };
+  return (
+    <>
+      <p style={{ color: "#8892b0", fontSize: 13, lineHeight: 1.6, marginTop: 0, marginBottom: 16 }}>
+        {t("הזן את סיסמת ההצפנה שלך כדי להסיר את קוד החשיפה.")}
+      </p>
+      <label htmlFor="fp-pass" style={vaultLabel}>{t("סיסמת הצפנה")}</label>
+      <PasswordInput id="fp-pass" autoComplete="current-password" autoFocus value={pass}
+        onChange={e => { setPass(e.target.value); setError(""); }}
+        onKeyDown={e => e.key === "Enter" && submit()} dir="ltr" />
+      {error && <div role="alert" style={{ color: "#ef4444", fontSize: 13, marginBottom: 12 }}>{error}</div>}
+      <button style={vaultBtn(busy)} onClick={submit} disabled={busy}>{busy ? t("בודק...") : t("הסר קוד חשיפה")}</button>
+    </>
+  );
+}
+
 // Numeric keypad used as a quick "reveal" gate. mode="verify" calls onVerify(pin)
 // (async → boolean); mode="set" collects + confirms then calls onSet(pin).
 function RevealPinPad({ mode = "verify", length = 6, title, subtitle, onVerify, onSet, onCancel }) {
@@ -566,6 +594,10 @@ export default function App() {
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isPremium, setIsPremium] = useState(false); // plan gating (from profiles)
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [adminUsers, setAdminUsers] = useState(null); // admin console user list
+  const [adminBusy, setAdminBusy] = useState(false);
   const [paywallModal, setPaywallModal] = useState(false);
   const [transferModal, setTransferModal] = useState(null);   // cardId being transferred out (Premium)
   const [transferredCard, setTransferredCard] = useState(null); // card just exported → offer to delete
@@ -605,17 +637,19 @@ export default function App() {
 
   // ── Load the user's plan (Free / Premium). Absent row or missing table → Free. ──
   useEffect(() => {
-    if (!session) { setIsPremium(false); return; }
+    if (!session) { setIsPremium(false); setIsAdmin(false); setIsBlocked(false); return; }
     let cancelled = false;
     (async () => {
       try {
         const { data } = await supabase
-          .from("profiles").select("plan, premium_until").eq("user_id", session.user.id).maybeSingle();
+          .from("profiles").select("plan, premium_until, is_admin, blocked").eq("user_id", session.user.id).maybeSingle();
         if (cancelled) return;
         const premium = !!data && (data.plan === "premium" ||
           (data.premium_until && new Date(data.premium_until) > new Date()));
         setIsPremium(!!premium);
-      } catch { if (!cancelled) setIsPremium(false); }
+        setIsAdmin(!!data?.is_admin);
+        setIsBlocked(!!data?.blocked);
+      } catch { if (!cancelled) { setIsPremium(false); setIsAdmin(false); setIsBlocked(false); } }
     })();
     return () => { cancelled = true; };
   }, [session]);
@@ -1043,6 +1077,42 @@ export default function App() {
     showToast("קוד חשיפה הוגדר 🔒");
   };
 
+  // ── Admin console (server re-checks is_admin() on every call) ──
+  const openAdmin = () => { setView("admin"); loadAdminUsers(); };
+
+  const loadAdminUsers = async () => {
+    setAdminBusy(true);
+    const { data, error } = await supabase.rpc("admin_list_users");
+    setAdminBusy(false);
+    if (error) { showToast("שגיאה בטעינת המשתמשים", "error"); return; }
+    setAdminUsers(data || []);
+  };
+
+  const adminSetPlan = async (uid, plan) => {
+    const { error } = await supabase.rpc("admin_set_plan", { target: uid, new_plan: plan });
+    if (error) return showToast("הפעולה נכשלה", "error");
+    showToast(plan === "premium" ? "שודרג ל-Premium ✓" : "הוחזר ל-Free ✓");
+    loadAdminUsers();
+  };
+
+  const adminSetBlocked = async (uid, block) => {
+    const { error } = await supabase.rpc("admin_set_blocked", { target: uid, block });
+    if (error) return showToast("הפעולה נכשלה", "error");
+    showToast(block ? "המשתמש נחסם" : "החסימה הוסרה");
+    loadAdminUsers();
+  };
+
+  // Forgot the reveal PIN? The passphrase is the real gate, so proving it is
+  // enough to drop the local PIN. (No admin can do this — the PIN never leaves
+  // the device.)
+  const handleForgotPin = async (passphrase) => {
+    try {
+      await unlockVault(passphrase, keyRecord); // throws if the passphrase is wrong
+      handleRemoveRevealPin();
+      return true;
+    } catch { return false; }
+  };
+
   const handleRemoveRevealPin = () => {
     localStorage.removeItem("gw_reveal_pin");
     setRevealPinRecord(null);
@@ -1234,6 +1304,20 @@ export default function App() {
 
   if (!session) return <AuthScreen />;
 
+  // Blocked by an admin: the DB already denies their rows; this explains why.
+  if (isBlocked) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#0a0f1e", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "'Segoe UI', Arial, sans-serif" }}>
+        <div style={{ maxWidth: 380, textAlign: "center" }}>
+          <div style={{ fontSize: 52, marginBottom: 14 }}>🚫</div>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: "#f3f4f6", margin: "0 0 10px" }}>{t("החשבון הושעה")}</h1>
+          <p style={{ color: "#8892b0", fontSize: 14, lineHeight: 1.7, marginBottom: 22 }}>{t("הגישה לחשבון זה נחסמה. אם לדעתך מדובר בטעות, אפשר לפנות אלינו.")}</p>
+          <button style={{ ...S.outlineBtn, borderColor: "#ef4444", color: "#ef4444" }} onClick={() => supabase.auth.signOut()}>{t("🚪 התנתק")}</button>
+        </div>
+      </div>
+    );
+  }
+
   // ─── VAULT GATES (must unlock before any card data is shown) ────────────────
   if (vaultState === "loading") {
     return (
@@ -1283,6 +1367,75 @@ export default function App() {
     </Suspense>
   );
 
+  // ─── ADMIN ────────────────────────────────────────────────────────────────
+  if (view === "admin") {
+    if (!isAdmin) {
+      return (
+        <div style={S.page}>
+          <div style={S.container}>
+            <button style={S.backBtn} onClick={() => setView("settings")}>{t("→ חזרה")}</button>
+            <div style={{ textAlign: "center", color: "#6b7280", padding: 60 }}>{t("אין לך הרשאה לאזור הזה")}</div>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div style={S.page}>
+        <div style={S.container}>
+          <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+            <button style={S.backBtn} onClick={() => setView("settings")}>{t("→ חזרה")}</button>
+            <h1 style={{ ...S.title, margin: 0, fontSize: 20 }}>{t("👥 ניהול משתמשים")}</h1>
+          </header>
+
+          <div style={{ background: "#0f172a", border: "1px solid #1f2937", borderRadius: 12, padding: "10px 14px", color: "#6b7280", fontSize: 11, lineHeight: 1.6, marginBottom: 14 }}>
+            {t("🔒 גם כמנהל אינך יכול לראות קודים של משתמשים — הם מוצפנים במפתח האישי שלהם.")}
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <span style={{ color: "#6b7280", fontSize: 13 }}>{adminUsers ? ti("{n} משתמשים", { n: adminUsers.length }) : ""}</span>
+            <button style={S.chipBtn} onClick={loadAdminUsers} disabled={adminBusy}>{adminBusy ? t("טוען...") : t("↻ רענן")}</button>
+          </div>
+
+          {adminBusy && !adminUsers && <div style={{ textAlign: "center", color: "#6b7280", padding: 30 }}>{t("טוען...")}</div>}
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {(adminUsers || []).map(u => (
+              <div key={u.user_id} style={{ background: "#111827", border: `1px solid ${u.blocked ? "#ef444455" : "#1f2937"}`, borderRadius: 14, padding: 14, opacity: u.blocked ? 0.7 : 1 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ color: "#e8eaf6", fontSize: 14, fontWeight: 700, overflowWrap: "anywhere" }}>{u.email}</div>
+                    <div style={{ color: "#4b5563", fontSize: 11, marginTop: 3 }}>
+                      {ti("הצטרף {date} · {n} כרטיסים", { date: fmtDate(u.created_at), n: u.cards })}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end", flexShrink: 0 }}>
+                    {u.plan === "premium"
+                      ? <span style={{ background: "linear-gradient(135deg,#f7d774,#d4af37)", color: "#3a2c00", fontSize: 9, fontWeight: 800, padding: "2px 7px", borderRadius: 20 }}>PREMIUM</span>
+                      : <span style={{ background: "#1f2937", color: "#9ca3af", fontSize: 9, fontWeight: 800, padding: "2px 7px", borderRadius: 20 }}>FREE</span>}
+                    {u.is_admin && <span style={{ background: "#6c63ff33", color: "#a5b4fc", fontSize: 9, fontWeight: 800, padding: "2px 7px", borderRadius: 20 }}>ADMIN</span>}
+                    {u.blocked && <span style={{ background: "#ef444433", color: "#fca5a5", fontSize: 9, fontWeight: 800, padding: "2px 7px", borderRadius: 20 }}>{t("חסום")}</span>}
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                  {u.plan === "premium"
+                    ? <button style={{ ...S.outlineBtn, flex: 1, padding: "8px 10px", fontSize: 12 }} onClick={() => adminSetPlan(u.user_id, "free")}>{t("החזר ל-Free")}</button>
+                    : <button style={{ ...S.outlineBtn, flex: 1, padding: "8px 10px", fontSize: 12, borderColor: "#d4af3766", color: "#e1ac1c" }} onClick={() => adminSetPlan(u.user_id, "premium")}>{t("✨ שדרג ל-Premium")}</button>}
+                  {!u.is_admin && (u.blocked
+                    ? <button style={{ ...S.outlineBtn, flex: 1, padding: "8px 10px", fontSize: 12, borderColor: "#10b98166", color: "#10b981" }} onClick={() => adminSetBlocked(u.user_id, false)}>{t("בטל חסימה")}</button>
+                    : <button style={{ ...S.outlineBtn, flex: 1, padding: "8px 10px", fontSize: 12, borderColor: "#ef444466", color: "#ef4444" }} onClick={() => adminSetBlocked(u.user_id, true)}>{t("חסום משתמש")}</button>)}
+                </div>
+              </div>
+            ))}
+            {adminUsers && adminUsers.length === 0 && (
+              <div style={{ textAlign: "center", color: "#6b7280", padding: 40 }}>{t("לא נמצאו משתמשים")}</div>
+            )}
+          </div>
+        </div>
+        {toast && <Toast toast={toast} />}
+      </div>
+    );
+  }
+
   // ─── SETTINGS ─────────────────────────────────────────────────────────────
   if (view === "settings") {
     return (
@@ -1292,6 +1445,14 @@ export default function App() {
             <button style={S.backBtn} onClick={() => setView("dashboard")}>{t("→ חזרה")}</button>
             <h1 style={{ ...S.title, margin: 0 }}>{t("⚙️ הגדרות")}</h1>
           </header>
+
+          {isAdmin && (
+            <div style={S.sectionCard}>
+              <h3 style={S.sectionTitle}>{t("🛠️ ניהול")}</h3>
+              <div style={{ color: "#9ca3af", fontSize: 13, marginBottom: 12 }}>{t("אזור מנהל — ניהול המשתמשים הרשומים.")}</div>
+              <button style={S.primaryBtn} onClick={openAdmin}>{t("👥 ניהול משתמשים")}</button>
+            </div>
+          )}
 
           <div style={S.sectionCard}>
             <h3 style={S.sectionTitle}>{t("⭐ תוכנית")}</h3>
@@ -1333,6 +1494,7 @@ export default function App() {
                   <div style={{ color: "#10b981", fontSize: 14 }}>{t("✓ קוד חשיפה פעיל")}</div>
                   <button style={S.outlineBtn} onClick={() => setPinSetModal("set")}>{t("שנה קוד חשיפה")}</button>
                   <button style={{ ...S.outlineBtn, borderColor: "#ef4444", color: "#ef4444" }} onClick={() => setPinSetModal("remove")}>{t("הסר קוד חשיפה")}</button>
+                  <button style={{ background: "none", border: "none", color: "#6b7280", fontSize: 12, cursor: "pointer", fontFamily: "inherit", padding: 2 }} onClick={() => setPinSetModal("forgot")}>{t("שכחת את קוד החשיפה?")}</button>
                 </>
               ) : (
                 <button style={S.outlineBtn} onClick={() => setPinSetModal("set")}>{t("🔢 הגדר קוד חשיפה (PIN)")}</button>
@@ -1447,6 +1609,12 @@ export default function App() {
                 return ok;
               }}
               onCancel={() => setPinSetModal(null)} />
+          </Modal>
+        )}
+
+        {pinSetModal === "forgot" && (
+          <Modal title={t("שכחת את קוד החשיפה?")} onClose={() => setPinSetModal(null)}>
+            <ForgotPinForm onSubmit={handleForgotPin} />
           </Modal>
         )}
 
