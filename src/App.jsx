@@ -598,6 +598,9 @@ export default function App() {
   const [isBlocked, setIsBlocked] = useState(false);
   const [adminUsers, setAdminUsers] = useState(null); // admin console user list
   const [adminBusy, setAdminBusy] = useState(false);
+  const [storeQuery, setStoreQuery] = useState("");      // "which card works here?" search
+  const [storeResults, setStoreResults] = useState(null);
+  const [storeBusy, setStoreBusy] = useState(false);
   const [paywallModal, setPaywallModal] = useState(false);
   const [transferModal, setTransferModal] = useState(null);   // cardId being transferred out (Premium)
   const [transferredCard, setTransferredCard] = useState(null); // card just exported → offer to delete
@@ -1077,6 +1080,35 @@ export default function App() {
     showToast("קוד חשיפה הוגדר 🔒");
   };
 
+  // ── "Which of my cards works at this store?" ──
+  // Our merchants table is a convenience copy of the providers' official lists,
+  // which they may change without notice — hence the "verify at the register"
+  // note and the link to each provider's own list.
+  const cardsForProvider = (providerId) =>
+    cards.filter(c => c.provider === providerId && !c.fullyUsed && !isExpired(c.expiry));
+
+  const searchStores = async (q) => {
+    setStoreQuery(q);
+    const term = q.trim();
+    if (term.length < 2) { setStoreResults(null); return; }
+    setStoreBusy(true);
+    const { data, error } = await supabase
+      .from("merchants").select("provider,name,variant,source_url").ilike("name", `%${term}%`).limit(60);
+    setStoreBusy(false);
+    if (error) { showToast("שגיאה בחיפוש", "error"); return; }
+    const map = new Map();
+    for (const r of data || []) {
+      if (!map.has(r.name)) map.set(r.name, []);
+      map.get(r.name).push(r);
+    }
+    // Stores where the user actually holds a usable card float to the top.
+    const list = [...map.entries()].map(([name, rows]) => ({
+      name, rows, mine: rows.some(r => cardsForProvider(r.provider).length > 0),
+    }));
+    list.sort((a, b) => (b.mine ? 1 : 0) - (a.mine ? 1 : 0) || a.name.localeCompare(b.name));
+    setStoreResults(list);
+  };
+
   // ── Admin console (server re-checks is_admin() on every call) ──
   const openAdmin = () => { setView("admin"); loadAdminUsers(); };
 
@@ -1366,6 +1398,82 @@ export default function App() {
       <StatsView cards={cards} onBack={() => setView("dashboard")} />
     </Suspense>
   );
+
+  // ─── WHERE CAN I USE IT ───────────────────────────────────────────────────
+  if (view === "stores") {
+    return (
+      <div style={S.page}>
+        <div style={S.container}>
+          <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <button style={S.backBtn} onClick={() => setView("dashboard")}>{t("→ חזרה")}</button>
+            <h1 style={{ ...S.title, margin: 0, fontSize: 19 }}>{t("🔎 איזה כרטיס עובד פה?")}</h1>
+          </header>
+
+          <input style={{ ...S.input, marginBottom: 10 }} autoFocus value={storeQuery}
+            placeholder={t("הקלד שם חנות — למשל FOX")}
+            onChange={e => searchStores(e.target.value)} />
+
+          <div style={{ background: "#0f172a", border: "1px solid #1f2937", borderRadius: 12, padding: "10px 14px", color: "#6b7280", fontSize: 11, lineHeight: 1.6, marginBottom: 14 }}>
+            {t("⚠️ המידע מבוסס על הרשימות הרשמיות של הספקים, והן משתנות מדי פעם ללא הודעה. כדאי לאמת בקופה.")}
+          </div>
+
+          {storeBusy && <div style={{ textAlign: "center", color: "#6b7280", padding: 20 }}>{t("מחפש...")}</div>}
+
+          {!storeBusy && storeResults === null && (
+            <div style={{ textAlign: "center", color: "#6b7280", padding: "40px 20px" }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>🏬</div>
+              <div style={{ fontSize: 14 }}>{t("הקלד שם של חנות כדי לראות אילו מהכרטיסים שלך מכובדים בה.")}</div>
+            </div>
+          )}
+
+          {!storeBusy && storeResults && storeResults.length === 0 && (
+            <div style={{ textAlign: "center", color: "#6b7280", padding: "30px 20px", fontSize: 14 }}>
+              {t("לא מצאנו את החנות אצלנו. אפשר לבדוק ברשימות הרשמיות למטה.")}
+            </div>
+          )}
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {(storeResults || []).map(({ name, rows, mine }) => (
+              <div key={name} style={{ background: "#111827", border: `1px solid ${mine ? "#10b98155" : "#1f2937"}`, borderRadius: 14, padding: 14 }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: "#e8eaf6", marginBottom: 8 }}>{name}</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {rows.map(r => {
+                    const prov = provider(r.provider);
+                    const mineCards = cardsForProvider(r.provider);
+                    const total = mineCards.reduce((s, c) => s + c.remainingAmount, 0);
+                    return (
+                      <div key={r.provider} style={{ display: "flex", alignItems: "center", gap: 7, borderRadius: 10, padding: "7px 11px",
+                        background: mineCards.length ? "#10b98118" : "#0a0f1e",
+                        border: `1px solid ${mineCards.length ? "#10b98155" : "#1f2937"}` }}>
+                        <span style={{ fontSize: 15 }}>{prov.icon}</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: mineCards.length ? "#6ee7b7" : "#9ca3af" }}>{t(prov.name)}</span>
+                        {mineCards.length > 0
+                          ? <span style={{ fontSize: 12, fontWeight: 800, color: "#10b981" }}>· {fmt(total)}</span>
+                          : <span style={{ fontSize: 11, color: "#4b5563" }}>· {t("אין לך")}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ ...S.sectionCard, marginTop: 22 }}>
+            <h3 style={S.sectionTitle}>{t("📋 הרשימות הרשמיות (מקור האמת)")}</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {PROVIDERS.filter(p => p.listUrl).map(p => (
+                <a key={p.id} href={p.listUrl} target="_blank" rel="noreferrer"
+                  style={{ ...S.outlineBtn, textDecoration: "none", display: "block", textAlign: "center", boxSizing: "border-box" }}>
+                  {p.icon} {ti("בתי עסק של {name} ↗", { name: t(p.name) })}
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+        {toast && <Toast toast={toast} />}
+      </div>
+    );
+  }
 
   // ─── ADMIN ────────────────────────────────────────────────────────────────
   if (view === "admin") {
@@ -2145,6 +2253,11 @@ export default function App() {
           <input style={{ ...S.input, paddingRight: 40 }} placeholder={t("🔍 חיפוש...")} value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
           {searchQuery && <button style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "#6b7280", cursor: "pointer", fontSize: 16 }} onClick={() => setSearchQuery("")}>✕</button>}
         </div>
+
+        <button style={{ width: "100%", background: "#111827", border: "1px solid #1f2937", color: "#a8b2d8", padding: "9px", borderRadius: 12, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
+          onClick={() => { setStoreQuery(""); setStoreResults(null); setView("stores"); track("stores_opened"); }}>
+          {t("🔎 איזה כרטיס עובד פה?")}
+        </button>
       </div>
 
       {/* SCROLLABLE */}

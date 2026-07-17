@@ -1,9 +1,13 @@
 // Shared constants, helpers and styles used across App.jsx and the lazy-loaded
 // views (e.g. StatsView). Kept dependency-free so it can be imported anywhere.
 
+// `listUrl` = the provider's OWN list of accepting businesses. It is the source of
+// truth: our merchants table is a convenience copy and every provider states the
+// list can change without notice.
 export const PROVIDERS = [
-  { id: "buyme", name: "BuyMe", color: "#E91E8C", icon: "🎁", checkUrl: "https://www.buyme.co.il/balance" },
-  { id: "dreamcard", name: "Dream Card VIP", color: "#6C3FC5", icon: "💜", checkUrl: "https://www.dreamcard.co.il" },
+  { id: "buyme", name: "BuyMe ALL", color: "#E91E8C", icon: "🎁", checkUrl: "https://www.buyme.co.il/balance", listUrl: "https://buyme.co.il/brands/13438757" },
+  { id: "dreamcard", name: "Dream Card VIP", color: "#6C3FC5", icon: "💜", checkUrl: "https://www.dreamcard.co.il", listUrl: "https://online.dreamcard.co.il/public/branches" },
+  { id: "max", name: "Max Gift", color: "#00A5A8", icon: "💳", checkUrl: "https://www.max.co.il/gift-card-transactions/main", listUrl: "https://www.max.co.il/cards/giftcards" },
   { id: "giftcard", name: "Gift Card", color: "#FF6B35", icon: "🃏", checkUrl: null },
   { id: "coupon", name: "קופון", color: "#00B894", icon: "✂️", checkUrl: null },
   { id: "amazon", name: "Amazon", color: "#FF9900", icon: "📦", checkUrl: "https://www.amazon.com/gc/redeem" },

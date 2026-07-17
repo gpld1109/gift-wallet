@@ -399,6 +399,18 @@ const EN = {
   "הפרטים יוצגו ל-60 שניות": "Details will show for 60 seconds",
   "פרטים גלויים ל-60 שניות 🔓": "Details visible for 60 seconds 🔓",
 
+  // ── Where can I use it ──
+  "🔎 איזה כרטיס עובד פה?": "🔎 Which card works here?",
+  "הקלד שם חנות — למשל FOX": "Type a store name — e.g. FOX",
+  "⚠️ המידע מבוסס על הרשימות הרשמיות של הספקים, והן משתנות מדי פעם ללא הודעה. כדאי לאמת בקופה.": "⚠️ Based on the providers' official lists, which can change without notice. Worth confirming at the register.",
+  "מחפש...": "Searching...",
+  "הקלד שם של חנות כדי לראות אילו מהכרטיסים שלך מכובדים בה.": "Type a store name to see which of your cards it accepts.",
+  "לא מצאנו את החנות אצלנו. אפשר לבדוק ברשימות הרשמיות למטה.": "We don't have that store. Try the official lists below.",
+  "אין לך": "you don't have one",
+  "📋 הרשימות הרשמיות (מקור האמת)": "📋 Official lists (source of truth)",
+  "בתי עסק של {name} ↗": "{name} businesses ↗",
+  "שגיאה בחיפוש": "Search error",
+
   // ── Admin console ──
   "🛠️ ניהול": "🛠️ Administration",
   "אזור מנהל — ניהול המשתמשים הרשומים.": "Admin area — manage registered users.",
