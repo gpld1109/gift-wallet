@@ -2,3 +2,7 @@ node_modules
 dist
 .env
 .DS_Store
+
+# local DB backups + connection string (never commit)
+db-url.txt
+*.backup.sql
