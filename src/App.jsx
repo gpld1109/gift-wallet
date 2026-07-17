@@ -1093,7 +1093,7 @@ export default function App() {
     if (term.length < 2) { setStoreResults(null); return; }
     setStoreBusy(true);
     const { data, error } = await supabase
-      .from("merchants").select("provider,name,variant,source_url").ilike("name", `%${term}%`).limit(60);
+      .from("merchants").select("provider,name,variant,source_url,category").ilike("name", `%${term}%`).limit(60);
     setStoreBusy(false);
     if (error) { showToast("שגיאה בחיפוש", "error"); return; }
     const map = new Map();
@@ -1103,7 +1103,8 @@ export default function App() {
     }
     // Stores where the user actually holds a usable card float to the top.
     const list = [...map.entries()].map(([name, rows]) => ({
-      name, rows, mine: rows.some(r => cardsForProvider(r.provider).length > 0),
+      name, rows, category: rows.find(r => r.category)?.category || null,
+      mine: rows.some(r => cardsForProvider(r.provider).length > 0),
     }));
     list.sort((a, b) => (b.mine ? 1 : 0) - (a.mine ? 1 : 0) || a.name.localeCompare(b.name));
     setStoreResults(list);
@@ -1433,9 +1434,11 @@ export default function App() {
           )}
 
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {(storeResults || []).map(({ name, rows, mine }) => (
+            {(storeResults || []).map(({ name, rows, mine, category }) => (
               <div key={name} style={{ background: "#111827", border: `1px solid ${mine ? "#10b98155" : "#1f2937"}`, borderRadius: 14, padding: 14 }}>
-                <div style={{ fontSize: 15, fontWeight: 800, color: "#e8eaf6", marginBottom: 8 }}>{name}</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: "#e8eaf6" }}>{name}</div>
+                {category && <div style={{ fontSize: 11, color: "#4b5563", marginTop: 2, marginBottom: 8 }}>{category}</div>}
+                {!category && <div style={{ height: 8 }} />}
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                   {rows.map(r => {
                     const prov = provider(r.provider);
