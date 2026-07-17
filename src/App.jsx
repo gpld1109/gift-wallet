@@ -1428,8 +1428,12 @@ export default function App() {
           )}
 
           {!storeBusy && storeResults && storeResults.length === 0 && (
-            <div style={{ textAlign: "center", color: "#6b7280", padding: "30px 20px", fontSize: 14 }}>
-              {t("לא מצאנו את החנות אצלנו. אפשר לבדוק ברשימות הרשמיות למטה.")}
+            <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: 14, padding: 18, textAlign: "center" }}>
+              <div style={{ fontSize: 34, marginBottom: 10 }}>🤷</div>
+              <div style={{ color: "#e8eaf6", fontSize: 15, fontWeight: 700, marginBottom: 6 }}>{ti("לא מצאנו את «{q}» ברשימות שלנו", { q: storeQuery.trim() })}</div>
+              <div style={{ color: "#8892b0", fontSize: 13, lineHeight: 1.7 }}>
+                {t("יכול להיות שהחנות לא מכבדת אף אחד מהכרטיסים — או שהיא פשוט לא מופיעה ברשימה שלנו. כדאי לבדוק ברשימות הרשמיות למטה.")}
+              </div>
             </div>
           )}
 
@@ -1461,17 +1465,24 @@ export default function App() {
             ))}
           </div>
 
-          <div style={{ ...S.sectionCard, marginTop: 22 }}>
-            <h3 style={S.sectionTitle}>{t("📋 הרשימות הרשמיות (מקור האמת)")}</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {PROVIDERS.filter(p => p.listUrl).map(p => (
-                <a key={p.id} href={p.listUrl} target="_blank" rel="noreferrer"
-                  style={{ ...S.outlineBtn, textDecoration: "none", display: "block", textAlign: "center", boxSizing: "border-box" }}>
-                  {p.icon} {ti("בתי עסק של {name} ↗", { name: t(p.name) })}
-                </a>
-              ))}
+          {/* Only when there's nothing to show — otherwise these links read as if
+              they were results for the searched store. */}
+          {!storeBusy && (!storeResults || storeResults.length === 0) && (
+            <div style={{ ...S.sectionCard, marginTop: 22 }}>
+              <h3 style={S.sectionTitle}>{t("לא מצאת? חפש ברשימות של הספקים")}</h3>
+              <div style={{ color: "#4b5563", fontSize: 11, lineHeight: 1.6, marginBottom: 12 }}>
+                {t("אלה הרשימות הרשמיות והמעודכנות של כל ספק — לא תוצאות של החיפוש שלך.")}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {PROVIDERS.filter(p => p.listUrl).map(p => (
+                  <a key={p.id} href={p.listUrl} target="_blank" rel="noreferrer"
+                    style={{ ...S.outlineBtn, textDecoration: "none", display: "block", textAlign: "center", boxSizing: "border-box" }}>
+                    {p.icon} {ti("בתי עסק של {name} ↗", { name: t(p.name) })}
+                  </a>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
         {toast && <Toast toast={toast} />}
       </div>
