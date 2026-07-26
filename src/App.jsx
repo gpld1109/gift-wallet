@@ -598,6 +598,7 @@ export default function App() {
   const [isBlocked, setIsBlocked] = useState(false);
   const [adminUsers, setAdminUsers] = useState(null); // admin console user list
   const [adminBusy, setAdminBusy] = useState(false);
+  const [adminDeleteTarget, setAdminDeleteTarget] = useState(null); // user pending permanent deletion
   const [storeQuery, setStoreQuery] = useState("");      // "which card works here?" search
   const [storeResults, setStoreResults] = useState(null);
   const [storeBusy, setStoreBusy] = useState(false);
@@ -1135,6 +1136,14 @@ export default function App() {
     loadAdminUsers();
   };
 
+  const adminDeleteUser = async (uid) => {
+    const { error } = await supabase.rpc("admin_delete_user", { target: uid });
+    setAdminDeleteTarget(null);
+    if (error) return showToast("המחיקה נכשלה", "error");
+    showToast("המשתמש נמחק לצמיתות");
+    loadAdminUsers();
+  };
+
   // Resend the login code to a user who didn't get it. This just re-triggers the
   // normal OTP email to *their* inbox — it can't log us in as them. Whether it
   // actually arrives is a Brevo/Supabase-logs question, not something we can see.
@@ -1559,7 +1568,12 @@ export default function App() {
                     ? <button style={{ ...S.outlineBtn, flex: 1, padding: "8px 10px", fontSize: 12, borderColor: "#10b98166", color: "#10b981" }} onClick={() => adminSetBlocked(u.user_id, false)}>{t("בטל חסימה")}</button>
                     : <button style={{ ...S.outlineBtn, flex: 1, padding: "8px 10px", fontSize: 12, borderColor: "#ef444466", color: "#ef4444" }} onClick={() => adminSetBlocked(u.user_id, true)}>{t("חסום משתמש")}</button>)}
                 </div>
-                <button style={{ width: "100%", marginTop: 8, background: "none", border: "1px solid #1f2937", color: "#a8b2d8", padding: "8px", borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }} onClick={() => adminResendEmail(u.email)}>{t("📧 שלח מייל התחברות מחדש")}</button>
+                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                  <button style={{ flex: 1, background: "none", border: "1px solid #1f2937", color: "#a8b2d8", padding: "8px", borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }} onClick={() => adminResendEmail(u.email)}>{t("📧 שלח מייל התחברות מחדש")}</button>
+                  {!u.is_admin && (
+                    <button style={{ background: "none", border: "1px solid #7f1d1d", color: "#f87171", padding: "8px 12px", borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }} onClick={() => setAdminDeleteTarget(u)}>{t("🗑 מחק")}</button>
+                  )}
+                </div>
               </div>
             ))}
             {adminUsers && adminUsers.length === 0 && (
@@ -1567,6 +1581,19 @@ export default function App() {
             )}
           </div>
         </div>
+
+        {adminDeleteTarget && (
+          <Modal title={t("מחיקת משתמש לצמיתות")} onClose={() => setAdminDeleteTarget(null)}>
+            <p style={{ color: "#9ca3af", fontSize: 14, lineHeight: 1.7, marginTop: 0, marginBottom: 20 }}>
+              {t("פעולה זו תמחק לצמיתות את ")}<strong style={{ color: "#e8eaf6" }}>{adminDeleteTarget.email}</strong>{t(" ואת כל הכרטיסים והנתונים שלו. לא ניתן לבטל.")}
+            </p>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button style={{ ...S.primaryBtn, background: "#ef4444", flex: 1, marginTop: 0 }} onClick={() => adminDeleteUser(adminDeleteTarget.user_id)}>{t("מחק לצמיתות")}</button>
+              <button style={{ ...S.outlineBtn, flex: 1 }} onClick={() => setAdminDeleteTarget(null)}>{t("ביטול")}</button>
+            </div>
+          </Modal>
+        )}
+
         {toast && <Toast toast={toast} />}
       </div>
     );
