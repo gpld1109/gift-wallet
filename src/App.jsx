@@ -1135,6 +1135,19 @@ export default function App() {
     loadAdminUsers();
   };
 
+  // Resend the login code to a user who didn't get it. This just re-triggers the
+  // normal OTP email to *their* inbox — it can't log us in as them. Whether it
+  // actually arrives is a Brevo/Supabase-logs question, not something we can see.
+  const adminResendEmail = async (email) => {
+    const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
+    if (error) {
+      if (error.status === 429 || String(error.message || "").toLowerCase().includes("rate"))
+        return showToast("נשלחו יותר מדי בקשות — נסה שוב בעוד דקה", "warn");
+      return showToast("שליחת המייל נכשלה", "error");
+    }
+    showToast("מייל התחברות נשלח מחדש ✓");
+  };
+
   // Forgot the reveal PIN? The passphrase is the real gate, so proving it is
   // enough to drop the local PIN. (No admin can do this — the PIN never leaves
   // the device.)
@@ -1546,6 +1559,7 @@ export default function App() {
                     ? <button style={{ ...S.outlineBtn, flex: 1, padding: "8px 10px", fontSize: 12, borderColor: "#10b98166", color: "#10b981" }} onClick={() => adminSetBlocked(u.user_id, false)}>{t("בטל חסימה")}</button>
                     : <button style={{ ...S.outlineBtn, flex: 1, padding: "8px 10px", fontSize: 12, borderColor: "#ef444466", color: "#ef4444" }} onClick={() => adminSetBlocked(u.user_id, true)}>{t("חסום משתמש")}</button>)}
                 </div>
+                <button style={{ width: "100%", marginTop: 8, background: "none", border: "1px solid #1f2937", color: "#a8b2d8", padding: "8px", borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }} onClick={() => adminResendEmail(u.email)}>{t("📧 שלח מייל התחברות מחדש")}</button>
               </div>
             ))}
             {adminUsers && adminUsers.length === 0 && (
