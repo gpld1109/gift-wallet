@@ -599,6 +599,7 @@ export default function App() {
   const [adminUsers, setAdminUsers] = useState(null); // admin console user list
   const [adminBusy, setAdminBusy] = useState(false);
   const [adminDeleteTarget, setAdminDeleteTarget] = useState(null); // user pending permanent deletion
+  const [adminActing, setAdminActing] = useState(null); // "<uid>:<action>" while a per-user action runs
   const [storeQuery, setStoreQuery] = useState("");      // "which card works here?" search
   const [storeResults, setStoreResults] = useState(null);
   const [storeBusy, setStoreBusy] = useState(false);
@@ -1123,38 +1124,49 @@ export default function App() {
   };
 
   const adminSetPlan = async (uid, plan) => {
-    const { error } = await supabase.rpc("admin_set_plan", { target: uid, new_plan: plan });
-    if (error) return showToast("הפעולה נכשלה", "error");
-    showToast(plan === "premium" ? "שודרג ל-Premium ✓" : "הוחזר ל-Free ✓");
-    loadAdminUsers();
+    setAdminActing(`${uid}:plan`);
+    try {
+      const { error } = await supabase.rpc("admin_set_plan", { target: uid, new_plan: plan });
+      if (error) return showToast("הפעולה נכשלה", "error");
+      showToast(plan === "premium" ? "שודרג ל-Premium ✓" : "הוחזר ל-Free ✓");
+      await loadAdminUsers();
+    } finally { setAdminActing(null); }
   };
 
   const adminSetBlocked = async (uid, block) => {
-    const { error } = await supabase.rpc("admin_set_blocked", { target: uid, block });
-    if (error) return showToast("הפעולה נכשלה", "error");
-    showToast(block ? "המשתמש נחסם" : "החסימה הוסרה");
-    loadAdminUsers();
+    setAdminActing(`${uid}:block`);
+    try {
+      const { error } = await supabase.rpc("admin_set_blocked", { target: uid, block });
+      if (error) return showToast("הפעולה נכשלה", "error");
+      showToast(block ? "המשתמש נחסם" : "החסימה הוסרה");
+      await loadAdminUsers();
+    } finally { setAdminActing(null); }
   };
 
   const adminDeleteUser = async (uid) => {
-    const { error } = await supabase.rpc("admin_delete_user", { target: uid });
-    setAdminDeleteTarget(null);
-    if (error) return showToast("המחיקה נכשלה", "error");
-    showToast("המשתמש נמחק לצמיתות");
-    loadAdminUsers();
+    setAdminActing(`${uid}:delete`);
+    try {
+      const { error } = await supabase.rpc("admin_delete_user", { target: uid });
+      if (error) return showToast("המחיקה נכשלה", "error");
+      showToast("המשתמש נמחק לצמיתות");
+      await loadAdminUsers();
+    } finally { setAdminActing(null); setAdminDeleteTarget(null); }
   };
 
   // Resend the login code to a user who didn't get it. This just re-triggers the
   // normal OTP email to *their* inbox — it can't log us in as them. Whether it
   // actually arrives is a Brevo/Supabase-logs question, not something we can see.
-  const adminResendEmail = async (email) => {
-    const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
-    if (error) {
-      if (error.status === 429 || String(error.message || "").toLowerCase().includes("rate"))
-        return showToast("נשלחו יותר מדי בקשות — נסה שוב בעוד דקה", "warn");
-      return showToast("שליחת המייל נכשלה", "error");
-    }
-    showToast("מייל התחברות נשלח מחדש ✓");
+  const adminResendEmail = async (uid, email) => {
+    setAdminActing(`${uid}:resend`);
+    try {
+      const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
+      if (error) {
+        if (error.status === 429 || String(error.message || "").toLowerCase().includes("rate"))
+          return showToast("נשלחו יותר מדי בקשות — נסה שוב בעוד דקה", "warn");
+        return showToast("שליחת המייל נכשלה", "error");
+      }
+      showToast("מייל התחברות נשלח מחדש ✓");
+    } finally { setAdminActing(null); }
   };
 
   // Forgot the reveal PIN? The passphrase is the real gate, so proving it is
@@ -1543,7 +1555,10 @@ export default function App() {
           {adminBusy && !adminUsers && <div style={{ textAlign: "center", color: "#6b7280", padding: 30 }}>{t("טוען...")}</div>}
 
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {(adminUsers || []).map(u => (
+            {(adminUsers || []).map(u => {
+              const acting = adminActing && adminActing.startsWith(u.user_id + ":");
+              const btnBusy = (a) => adminActing === `${u.user_id}:${a}`;
+              return (
               <div key={u.user_id} style={{ background: "#111827", border: `1px solid ${u.blocked ? "#ef444455" : "#1f2937"}`, borderRadius: 14, padding: 14, opacity: u.blocked ? 0.7 : 1 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
                   <div style={{ minWidth: 0, flex: 1 }}>
@@ -1562,20 +1577,21 @@ export default function App() {
                 </div>
                 <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                   {u.plan === "premium"
-                    ? <button style={{ ...S.outlineBtn, flex: 1, padding: "8px 10px", fontSize: 12 }} onClick={() => adminSetPlan(u.user_id, "free")}>{t("החזר ל-Free")}</button>
-                    : <button style={{ ...S.outlineBtn, flex: 1, padding: "8px 10px", fontSize: 12, borderColor: "#d4af3766", color: "#e1ac1c" }} onClick={() => adminSetPlan(u.user_id, "premium")}>{t("✨ שדרג ל-Premium")}</button>}
+                    ? <button disabled={acting} style={{ ...S.outlineBtn, flex: 1, padding: "8px 10px", fontSize: 12, opacity: acting ? 0.5 : 1, cursor: acting ? "default" : "pointer" }} onClick={() => adminSetPlan(u.user_id, "free")}>{btnBusy("plan") ? t("מעדכן...") : t("החזר ל-Free")}</button>
+                    : <button disabled={acting} style={{ ...S.outlineBtn, flex: 1, padding: "8px 10px", fontSize: 12, borderColor: "#d4af3766", color: "#e1ac1c", opacity: acting ? 0.5 : 1, cursor: acting ? "default" : "pointer" }} onClick={() => adminSetPlan(u.user_id, "premium")}>{btnBusy("plan") ? t("מעדכן...") : t("✨ שדרג ל-Premium")}</button>}
                   {!u.is_admin && (u.blocked
-                    ? <button style={{ ...S.outlineBtn, flex: 1, padding: "8px 10px", fontSize: 12, borderColor: "#10b98166", color: "#10b981" }} onClick={() => adminSetBlocked(u.user_id, false)}>{t("בטל חסימה")}</button>
-                    : <button style={{ ...S.outlineBtn, flex: 1, padding: "8px 10px", fontSize: 12, borderColor: "#ef444466", color: "#ef4444" }} onClick={() => adminSetBlocked(u.user_id, true)}>{t("חסום משתמש")}</button>)}
+                    ? <button disabled={acting} style={{ ...S.outlineBtn, flex: 1, padding: "8px 10px", fontSize: 12, borderColor: "#10b98166", color: "#10b981", opacity: acting ? 0.5 : 1, cursor: acting ? "default" : "pointer" }} onClick={() => adminSetBlocked(u.user_id, false)}>{btnBusy("block") ? t("מעדכן...") : t("בטל חסימה")}</button>
+                    : <button disabled={acting} style={{ ...S.outlineBtn, flex: 1, padding: "8px 10px", fontSize: 12, borderColor: "#ef444466", color: "#ef4444", opacity: acting ? 0.5 : 1, cursor: acting ? "default" : "pointer" }} onClick={() => adminSetBlocked(u.user_id, true)}>{btnBusy("block") ? t("מעדכן...") : t("חסום משתמש")}</button>)}
                 </div>
                 <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                  <button style={{ flex: 1, background: "none", border: "1px solid #1f2937", color: "#a8b2d8", padding: "8px", borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }} onClick={() => adminResendEmail(u.email)}>{t("📧 שלח מייל התחברות מחדש")}</button>
+                  <button disabled={acting} style={{ flex: 1, background: "none", border: "1px solid #1f2937", color: btnBusy("resend") ? "#10b981" : "#a8b2d8", padding: "8px", borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: acting ? "default" : "pointer", fontFamily: "inherit", opacity: acting && !btnBusy("resend") ? 0.5 : 1 }} onClick={() => adminResendEmail(u.user_id, u.email)}>{btnBusy("resend") ? t("📧 שולח...") : t("📧 שלח מייל התחברות מחדש")}</button>
                   {!u.is_admin && (
-                    <button style={{ background: "none", border: "1px solid #7f1d1d", color: "#f87171", padding: "8px 12px", borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }} onClick={() => setAdminDeleteTarget(u)}>{t("🗑 מחק")}</button>
+                    <button disabled={acting} style={{ background: "none", border: "1px solid #7f1d1d", color: "#f87171", padding: "8px 12px", borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: acting ? "default" : "pointer", fontFamily: "inherit", flexShrink: 0, opacity: acting ? 0.5 : 1 }} onClick={() => setAdminDeleteTarget(u)}>{t("🗑 מחק")}</button>
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
             {adminUsers && adminUsers.length === 0 && (
               <div style={{ textAlign: "center", color: "#6b7280", padding: 40 }}>{t("לא נמצאו משתמשים")}</div>
             )}
@@ -1588,7 +1604,7 @@ export default function App() {
               {t("פעולה זו תמחק לצמיתות את ")}<strong style={{ color: "#e8eaf6" }}>{adminDeleteTarget.email}</strong>{t(" ואת כל הכרטיסים והנתונים שלו. לא ניתן לבטל.")}
             </p>
             <div style={{ display: "flex", gap: 12 }}>
-              <button style={{ ...S.primaryBtn, background: "#ef4444", flex: 1, marginTop: 0 }} onClick={() => adminDeleteUser(adminDeleteTarget.user_id)}>{t("מחק לצמיתות")}</button>
+              <button disabled={!!adminActing} style={{ ...S.primaryBtn, background: "#ef4444", flex: 1, marginTop: 0, opacity: adminActing ? 0.7 : 1 }} onClick={() => adminDeleteUser(adminDeleteTarget.user_id)}>{adminActing ? t("מוחק...") : t("מחק לצמיתות")}</button>
               <button style={{ ...S.outlineBtn, flex: 1 }} onClick={() => setAdminDeleteTarget(null)}>{t("ביטול")}</button>
             </div>
           </Modal>
