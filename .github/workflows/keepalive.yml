@@ -1,0 +1,32 @@
+name: Supabase keep-alive
+
+# Free-tier Supabase projects pause after ~7 days without activity. This hits a
+# tiny public RPC once a day so the project always looks active and never pauses.
+# It needs two repo secrets: SUPABASE_URL and SUPABASE_ANON_KEY (both are public
+# values — the anon key ships in the web app and is protected by RLS).
+
+on:
+  schedule:
+    - cron: "17 6 * * *"   # every day at 06:17 UTC
+  workflow_dispatch:        # lets you run it manually from the Actions tab
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "Missing SUPABASE_URL / SUPABASE_ANON_KEY repo secrets."; exit 1
+          fi
+          code=$(curl -sS -X POST "$SUPABASE_URL/rest/v1/rpc/ping" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{}' -o /dev/null -w "%{http_code}")
+          echo "Supabase responded: HTTP $code"
+          # 2xx = healthy. Anything else should fail the run so you get notified.
+          case "$code" in 2*) exit 0 ;; *) echo "Unexpected status"; exit 1 ;; esac
