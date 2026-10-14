@@ -1,4 +1,11 @@
 {
+  "redirects": [
+    {
+      "source": "/ping",
+      "destination": "https://wfsaujnxqdobqqobqvem.supabase.co/rest/v1/rpc/ping?apikey=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indmc2F1am54cWRvYnFxb2JxdmVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5OTQ3NDMsImV4cCI6MjA5NjU3MDc0M30.C23sbsI9dLq8sJLETodWCx-Z0P4h71qWPXkB2eCpxkQ",
+      "permanent": false
+    }
+  ],
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "headers": [
     {
